@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:safedrive/server/login.dart';
+import 'package:safedrive/presentation/screens/home_screen.dart';
 
 class LoginForm extends StatefulWidget {
   const LoginForm({super.key});
@@ -21,14 +22,18 @@ class _LoginFormState extends State<LoginForm> {
   }
 
   void _obtenerDatos() {
-    String email = _emailController.text;
-    String password = _passwordController.text;
+    /* String email = _emailController.text;
+    String password = _passwordController.text; */
 
-    print('Email: $email');
-    print('Password: $password');
+    // print('Email: $email');
+    // print('Password: $password');
 
     // Usar los datos como quieras
     // enviarAAPI(nombre, email, password);
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => const HomeScreen()),
+    );
   }
 
   @override

@@ -1,3 +1,4 @@
-void login() {
-  print('send to API');
+void login(String email, String password) {
+  print('Email: $email');
+  print('Password: $password');
 }
