@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:safedrive/server/login.dart';
-import 'package:safedrive/presentation/screens/home_screen.dart';
+import 'package:safedrive/presentation/layouts/main_layout_screen.dart';
 
 class LoginForm extends StatefulWidget {
   const LoginForm({super.key});
@@ -32,7 +31,7 @@ class _LoginFormState extends State<LoginForm> {
     // enviarAAPI(nombre, email, password);
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (context) => const HomeScreen()),
+      MaterialPageRoute(builder: (context) => const MainLayoutScreen()),
     );
   }
 
