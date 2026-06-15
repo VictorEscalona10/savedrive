@@ -18,6 +18,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
     const HomeScreen(),
     const Scaffold(body: Center(child: Text('Pantalla de Archivos'))),
     const Scaffold(body: Center(child: Text('Pantalla de Perfil'))),
+    const Scaffold(body: Center(child: Text('Pantalla de tontos'))),
   ];
 
   @override
@@ -35,10 +36,11 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
             gap: 8, // Espacio entre el ícono y el texto
             backgroundColor: Colors.white, // Color de fondo del GNav
             color: Colors.grey.shade600, // Color de los íconos INACTIVOS
-            activeColor: Colors.blueAccent, // Color del ícono y texto ACTIVO
-            tabBackgroundColor: Colors.blueAccent.withOpacity(
-              0.1,
-            ), // Color de la burbuja (con transparencia)
+            tabBorder: Border.all(
+              color: Colors.grey.shade300,
+              width: 1,
+            ), // Borde de cada pestaña
+            activeColor: Colors.black, // Color del ícono y texto ACTIVO
             padding: const EdgeInsets.all(15), // Espacio interno de cada botón
             // Sincronización con nuestro estado
             selectedIndex: _selectedIndex,
@@ -51,8 +53,9 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
             // Pestañas (GButton en lugar de BottomNavigationBarItem)
             tabs: const [
               GButton(icon: Icons.home, text: 'Inicio'),
-              GButton(icon: Icons.folder, text: 'Archivos'),
-              GButton(icon: Icons.person, text: 'Perfil'),
+              GButton(icon: Icons.favorite, text: 'Favoritos'),
+              GButton(icon: Icons.search, text: 'Buscar'),
+              GButton(icon: Icons.settings, text: 'Perfil'),
             ],
           ),
         ),

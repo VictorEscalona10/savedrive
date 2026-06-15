@@ -70,16 +70,12 @@ Future<String?> loginUsuario(String email, String password) async {
   }
 } */
 
-// LOGIN WEB
+// LOGIN GOOGLE WEB
 
 Future<String?> loginConGoogle() async {
   try {
     // Esto abrirá una pestaña del navegador dentro de tu app.
-    // El usuario elige su cuenta de Google, y al terminar,
-    // Supabase lo devuelve mágicamente a la app ya autenticado.
     await Supabase.instance.client.auth.signInWithOAuth(OAuthProvider.google);
-
-    // Como este método redirige, si la ejecución continúa por aquí, todo salió bien
     return null;
   } catch (e) {
     return "Error al conectar con Google: $e";
