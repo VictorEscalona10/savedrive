@@ -21,7 +21,7 @@ class Safedrive extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(colorSchemeSeed: Colors.yellow, useMaterial3: true),
+      theme: ThemeData(useMaterial3: true),
       // En lugar de ir directo al LoginScreen, usamos un "Guardia"
       home: const AuthGate(),
     );

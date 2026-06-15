@@ -28,29 +28,22 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
       body: IndexedStack(index: _selectedIndex, children: _screens),
 
       bottomNavigationBar: Container(
-        color: Colors.white, // Fondo de la barra inferior
+        color: Colors.black,
         child: Padding(
-          // Padding para que la barra no quede pegada a los bordes de la pantalla
-          padding: const EdgeInsets.symmetric(horizontal: 15.0, vertical: 18.0),
+          padding: const EdgeInsets.symmetric(horizontal: 15.0, vertical: 20.0),
           child: GNav(
-            gap: 8, // Espacio entre el ícono y el texto
-            backgroundColor: Colors.white, // Color de fondo del GNav
-            color: Colors.grey.shade600, // Color de los íconos INACTIVOS
-            tabBorder: Border.all(
-              color: Colors.grey.shade300,
-              width: 1,
-            ), // Borde de cada pestaña
-            activeColor: Colors.black, // Color del ícono y texto ACTIVO
-            padding: const EdgeInsets.all(15), // Espacio interno de cada botón
-            // Sincronización con nuestro estado
+            gap: 8,
+            backgroundColor: Colors.black,
+            color: Colors.white,
+            tabBackgroundColor: Colors.grey.shade800,
+            activeColor: Colors.white,
+            padding: const EdgeInsets.all(16),
             selectedIndex: _selectedIndex,
             onTabChange: (index) {
               setState(() {
                 _selectedIndex = index;
               });
             },
-
-            // Pestañas (GButton en lugar de BottomNavigationBarItem)
             tabs: const [
               GButton(icon: Icons.home, text: 'Inicio'),
               GButton(icon: Icons.favorite, text: 'Favoritos'),
