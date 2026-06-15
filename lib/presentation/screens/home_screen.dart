@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -10,7 +12,18 @@ class HomeScreen extends StatelessWidget {
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: [Text('Home Screen'), Text('Welcome to the Home Screen')],
+          children: [
+            Text('Home Screen'),
+            Text('Welcome to the Home Screen'),
+            ElevatedButton(
+              onPressed: () {
+                GoogleSignIn.instance.signOut();
+
+                Supabase.instance.client.auth.signOut();
+              },
+              child: Text('Go to Files'),
+            ),
+          ],
         ),
       ),
     );

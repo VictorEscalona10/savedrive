@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:safedrive/presentation/layouts/main_layout_screen.dart';
-// ¡Importante! Asegúrate de importar el archivo donde creaste la función loginUsuario
 import 'package:safedrive/server/login.dart';
 
 class LoginForm extends StatefulWidget {
@@ -14,7 +13,6 @@ class _LoginFormState extends State<LoginForm> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
-  // NUEVO: Variable para controlar el estado de carga
   bool _isLoading = false;
 
   @override
@@ -24,9 +22,8 @@ class _LoginFormState extends State<LoginForm> {
     super.dispose();
   }
 
-  // NUEVO: Transformamos la función a asíncrona (Future)
+  // --- FUNCIÓN DE INICIO DE SESIÓN CON CORREO ---
   Future<void> _iniciarSesion() async {
-    // 1. Validación básica (que no envíen campos vacíos)
     if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Por favor llena todos los campos')),
@@ -34,27 +31,21 @@ class _LoginFormState extends State<LoginForm> {
       return;
     }
 
-    // 2. Activamos el estado de carga
     setState(() {
       _isLoading = true;
     });
 
-    // 3. Llamamos a nuestra función de servidor de Supabase
-    // Usamos .trim() para quitar espacios accidentales al inicio o final del correo
     final error = await loginUsuario(
       _emailController.text.trim(),
       _passwordController.text.trim(),
     );
 
-    // 4. Regla de oro en Flutter: verificar si el widget sigue en pantalla después de un `await`
     if (!mounted) return;
 
-    // 5. Apagamos el estado de carga
     setState(() {
       _isLoading = false;
     });
 
-    // 6. Decidimos qué hacer según el resultado
     if (error == null) {
       Navigator.pushReplacement(
         context,
@@ -62,11 +53,34 @@ class _LoginFormState extends State<LoginForm> {
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error),
-          backgroundColor:
-              Colors.red.shade400, // Un toque de color rojo para errores
-        ),
+        SnackBar(content: Text(error), backgroundColor: Colors.red.shade400),
+      );
+    }
+  }
+
+  // --- NUEVA FUNCIÓN DE INICIO DE SESIÓN CON GOOGLE ---
+  Future<void> _iniciarSesionGoogle() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    final error = await loginConGoogle();
+
+    if (!mounted) return;
+
+    setState(() {
+      _isLoading = false;
+    });
+
+    if (error == null) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const MainLayoutScreen()),
+      );
+    } else if (error != "El inicio de sesión fue cancelado") {
+      // Solo mostramos error si falló algo en la base de datos, no si el usuario cerró la ventana
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error), backgroundColor: Colors.red.shade400),
       );
     }
   }
@@ -102,19 +116,17 @@ class _LoginFormState extends State<LoginForm> {
           ),
           const SizedBox(height: 30.0),
 
-          // NUEVO: Botón adaptado al estado de carga
+          // Botón Original de Correo
           SizedBox(
-            width: double.infinity, // Hace que el botón ocupe un buen ancho
+            width: double.infinity,
             height: 50.0,
             child: ElevatedButton(
-              // Si está cargando, deshabilitamos el botón (null). Si no, pasamos la función.
               onPressed: _isLoading ? null : _iniciarSesion,
               style: ElevatedButton.styleFrom(
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10.0),
                 ),
               ),
-              // Si está cargando, mostramos la ruedita. Si no, mostramos el texto.
               child: _isLoading
                   ? const SizedBox(
                       height: 24,
@@ -122,6 +134,34 @@ class _LoginFormState extends State<LoginForm> {
                       child: CircularProgressIndicator(strokeWidth: 2.5),
                     )
                   : const Text('Login', style: TextStyle(fontSize: 16)),
+            ),
+          ),
+
+          const SizedBox(height: 20.0),
+          const Divider(), // Línea divisoria
+          const SizedBox(height: 20.0),
+
+          // NUEVO Botón de Google
+          SizedBox(
+            width: double.infinity,
+            height: 50.0,
+            child: OutlinedButton.icon(
+              onPressed: _isLoading ? null : _iniciarSesionGoogle,
+              icon: _isLoading
+                  ? const SizedBox.shrink()
+                  : Image.network(
+                      'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/120px-Google_%22G%22_logo.svg.png',
+                      height: 24,
+                    ),
+              label: Text(
+                _isLoading ? 'Cargando...' : 'Continuar con Google',
+                style: const TextStyle(fontSize: 16, color: Colors.black87),
+              ),
+              style: OutlinedButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10.0),
+                ),
+              ),
             ),
           ),
         ],
