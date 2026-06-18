@@ -33,7 +33,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 15.0),
           child: Container(
             decoration: BoxDecoration(
-              color: const Color(0xFF2A2A2C),
+              color: Color(0xFF0CBA70),
               borderRadius: BorderRadius.circular(50),
             ),
             child: Padding(
@@ -42,7 +42,9 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
                 gap: 8, // Espacio entre el icono y el texto
                 backgroundColor: Colors.transparent,
                 color: Colors.white, // Color de los iconos INACTIVOS
-                activeColor: Colors.black, // Color del texto e icono ACTIVO
+                activeColor: Color(
+                  0xFF0CBA70,
+                ), // Color del texto e icono ACTIVO
                 tabBackgroundColor:
                     Colors.white, // Color de fondo de la pestaña ACTIVA
                 padding: const EdgeInsets.symmetric(
