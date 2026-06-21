@@ -6,22 +6,44 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Safedrive'), centerTitle: true),
+      appBar: AppBar(
+        title: Row(
+          children: [
+            Column(
+              children: [
+                Text(
+                  "Hola, Victor",
+                  style: TextStyle(fontSize: 25, fontWeight: FontWeight.w500),
+                ),
+                Text(
+                  "A donde iremos hoy?",
+                  style: const TextStyle(fontSize: 14, color: Colors.black54),
+                ),
+              ],
+            ),
+            const Spacer(),
+            CircleAvatar(
+              radius: 25,
+              backgroundImage: NetworkImage(
+                'https://avatars.githubusercontent.com/u/105328583?v=4',
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: const Color(0xFFF4F6F8),
+      ),
+      backgroundColor: const Color(0xFFF4F6F8),
       body: Center(
         child: Padding(
-          padding: const EdgeInsets.all(
-            16.0,
-          ), // Márgenes para que no toque los bordes
+          padding: const EdgeInsets.all(16.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Text(
-                'Home Screen',
+                'Bienvenido a SafeDrive',
                 style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
-              const SizedBox(
-                height: 20,
-              ), // Espacio entre el título y la tarjeta
+              const SizedBox(height: 150),
               Card(
                 elevation: 4.0,
                 shape: RoundedRectangleBorder(
@@ -30,7 +52,10 @@ class HomeScreen extends StatelessWidget {
                 clipBehavior: Clip.antiAlias,
                 child: ExpansionTile(
                   initiallyExpanded: true,
-                  leading: Text('15%'),
+                  leading: Text(
+                    '15%+',
+                    style: TextStyle(color: Color(0xFF0CBA70), fontSize: 14),
+                  ),
                   title: const Text('Despliegame'),
                   /* subtitle: const Text('Toca para ver más opciones'), */
                   shape:
@@ -44,12 +69,12 @@ class HomeScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Aquí puedes colocar la información detallada.',
+                            'Informacion rapida acerca del usuario',
                             style: TextStyle(fontSize: 16.0),
                           ),
                           SizedBox(height: 10),
                           Text(
-                            '💡 Puedes meter más textos, imágenes o incluso botones aquí dentro.',
+                            'Datosss, aqui van datoss',
                             style: TextStyle(color: Colors.black54),
                           ),
                         ],
@@ -58,7 +83,24 @@ class HomeScreen extends StatelessWidget {
                   ],
                 ),
               ),
-              // --- FIN DE LA TARJETA DESPLEGABLE ---
+              const SizedBox(height: 20),
+
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.grey,
+                  foregroundColor: Colors.white,
+                  textStyle: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 100,
+                    vertical: 20,
+                  ),
+                ),
+                child: const Text('Iniciar viaje'),
+                onPressed: () {},
+              ),
             ],
           ),
         ),

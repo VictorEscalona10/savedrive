@@ -1,5 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:google_sign_in/google_sign_in.dart';
+// import 'package:google_sign_in/google_sign_in.dart';
 
 // Login manual
 Future<String?> loginUsuario(String email, String password) async {
@@ -75,7 +75,10 @@ Future<String?> loginUsuario(String email, String password) async {
 Future<String?> loginConGoogle() async {
   try {
     // Esto abrirá una pestaña del navegador dentro de tu app.
-    await Supabase.instance.client.auth.signInWithOAuth(OAuthProvider.google);
+    await Supabase.instance.client.auth.signInWithOAuth(
+      OAuthProvider.google,
+      redirectTo: 'io.supabase.safedrive://login-callback',
+    );
     return null;
   } catch (e) {
     return "Error al conectar con Google: $e";

@@ -22,7 +22,7 @@ class Safedrive extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.white),
-      // En lugar de ir directo al LoginScreen, usamos un "Guardia"
+      // En lugar de ir directo al LoginScreen, usamos un "Guadia"
       home: const AuthGate(),
     );
   }
