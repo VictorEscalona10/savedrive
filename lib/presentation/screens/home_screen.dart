@@ -6,7 +6,33 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Safedrive"), centerTitle: true),
+      appBar: AppBar(
+        title: Row(
+          children: [
+            Column(
+              children: [
+                Text(
+                  "Hola, Victor",
+                  style: TextStyle(fontSize: 25, fontWeight: FontWeight.w500),
+                ),
+                Text(
+                  "A donde iremos hoy?",
+                  style: const TextStyle(fontSize: 14, color: Colors.black54),
+                ),
+              ],
+            ),
+            const Spacer(),
+            CircleAvatar(
+              radius: 25,
+              backgroundImage: NetworkImage(
+                'https://avatars.githubusercontent.com/u/105328583?v=4',
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: const Color(0xFFF4F6F8),
+      ),
+      backgroundColor: const Color(0xFFF4F6F8),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -61,7 +87,7 @@ class HomeScreen extends StatelessWidget {
 
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Color(0xFF0CBA70),
+                  backgroundColor: Colors.grey,
                   foregroundColor: Colors.white,
                   textStyle: const TextStyle(
                     fontSize: 15,

@@ -33,7 +33,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 15.0),
           child: Container(
             decoration: BoxDecoration(
-              color: Color(0xFF0CBA70),
+              color: Color(0xFF212528),
               borderRadius: BorderRadius.circular(50),
             ),
             child: Padding(
@@ -43,7 +43,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
                 backgroundColor: Colors.transparent,
                 color: Colors.white, // Color de los iconos INACTIVOS
                 activeColor: Color(
-                  0xFF0CBA70,
+                  0xFF212528,
                 ), // Color del texto e icono ACTIVO
                 tabBackgroundColor:
                     Colors.white, // Color de fondo de la pestaña ACTIVA

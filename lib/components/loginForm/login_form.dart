@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:safedrive/presentation/layouts/main_layout_screen.dart';
 import 'package:safedrive/server/login.dart';
 
@@ -14,15 +16,32 @@ class _LoginFormState extends State<LoginForm> {
   final TextEditingController _passwordController = TextEditingController();
 
   bool _isLoading = false;
+  late final StreamSubscription<AuthState> _authStateSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    // Escucha los cambios de sesión para navegar automáticamente
+    _authStateSubscription = Supabase.instance.client.auth.onAuthStateChange
+        .listen((data) {
+          final session = data.session;
+          if (session != null && mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const MainLayoutScreen()),
+            );
+          }
+        });
+  }
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _authStateSubscription.cancel();
     super.dispose();
   }
 
-  // --- FUNCIÓN DE INICIO DE SESIÓN CON CORREO ---
   Future<void> _iniciarSesion() async {
     if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -46,19 +65,13 @@ class _LoginFormState extends State<LoginForm> {
       _isLoading = false;
     });
 
-    if (error == null) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const MainLayoutScreen()),
-      );
-    } else {
+    if (error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(error), backgroundColor: Colors.red.shade400),
       );
     }
   }
 
-  // --- NUEVA FUNCIÓN DE INICIO DE SESIÓN CON GOOGLE ---
   Future<void> _iniciarSesionGoogle() async {
     setState(() {
       _isLoading = true;
@@ -68,21 +81,15 @@ class _LoginFormState extends State<LoginForm> {
 
     if (!mounted) return;
 
-    setState(() {
-      _isLoading = false;
-    });
-
-    if (error == null) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const MainLayoutScreen()),
-      );
-    } else if (error != "El inicio de sesión fue cancelado") {
-      // Solo mostramos error si falló algo en la base de datos, no si el usuario cerró la ventana
+    if (error != null && error != "El inicio de sesión fue cancelado") {
+      setState(() {
+        _isLoading = false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(error), backgroundColor: Colors.red.shade400),
       );
     }
+    // Si no hay error, el estado de carga se mantiene hasta que el listener de initState haga la navegación
   }
 
   @override
@@ -115,8 +122,6 @@ class _LoginFormState extends State<LoginForm> {
             obscureText: true,
           ),
           const SizedBox(height: 30.0),
-
-          // Botón Original de Correo
           SizedBox(
             width: double.infinity,
             height: 50.0,
@@ -136,12 +141,9 @@ class _LoginFormState extends State<LoginForm> {
                   : const Text('Login', style: TextStyle(fontSize: 16)),
             ),
           ),
-
           const SizedBox(height: 20.0),
-          const Divider(), // Línea divisoria
+          const Divider(),
           const SizedBox(height: 20.0),
-
-          // NUEVO Botón de Google
           SizedBox(
             width: double.infinity,
             height: 50.0,
