@@ -1,7 +1,42 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'; // Importación de Supabase
+import 'package:camera/camera.dart';
+// Asegúrate de poner la ruta correcta hacia tu archivo
+import 'package:safedrive/presentation/screens/camera/calibration_screen.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  String nombreUsuario = "Usuario"; // Valor por defecto
+  String? avatarUrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarDatosUsuario();
+  }
+
+  void _cargarDatosUsuario() {
+    final usuarioActual = Supabase.instance.client.auth.currentUser;
+
+    if (usuarioActual != null) {
+      final metadata = usuarioActual.userMetadata;
+
+      setState(() {
+        nombreUsuario =
+            metadata?['full_name'] ??
+            usuarioActual.email?.split('@').first ??
+            "Usuario";
+
+        avatarUrl = metadata?['avatar_url'];
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -10,23 +45,33 @@ class HomeScreen extends StatelessWidget {
         title: Row(
           children: [
             Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  "Hola, Victor",
-                  style: TextStyle(fontSize: 25, fontWeight: FontWeight.w500),
+                  "Hola, $nombreUsuario",
+                  style: const TextStyle(
+                    fontSize: 25,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-                Text(
+                const Text(
                   "A donde iremos hoy?",
-                  style: const TextStyle(fontSize: 14, color: Colors.black54),
+                  style: TextStyle(fontSize: 14, color: Colors.black54),
                 ),
               ],
             ),
             const Spacer(),
             CircleAvatar(
               radius: 25,
-              backgroundImage: NetworkImage(
-                'https://avatars.githubusercontent.com/u/105328583?v=4',
-              ),
+              backgroundColor: Colors.grey.shade300,
+
+              backgroundImage: avatarUrl != null
+                  ? NetworkImage(avatarUrl!)
+                  : null,
+              // Si avatarUrl es nulo, mostramos un icono por defecto
+              child: avatarUrl == null
+                  ? const Icon(Icons.person, size: 30, color: Colors.grey)
+                  : null,
             ),
           ],
         ),
@@ -52,14 +97,12 @@ class HomeScreen extends StatelessWidget {
                 clipBehavior: Clip.antiAlias,
                 child: ExpansionTile(
                   initiallyExpanded: true,
-                  leading: Text(
+                  leading: const Text(
                     '15%+',
                     style: TextStyle(color: Color(0xFF0CBA70), fontSize: 14),
                   ),
                   title: const Text('Despliegame'),
-                  /* subtitle: const Text('Toca para ver más opciones'), */
-                  shape:
-                      const Border(), // Elimina las líneas divisorias que trae por defecto
+                  shape: const Border(),
                   children: [
                     Container(
                       width: double.infinity,
@@ -84,7 +127,6 @@ class HomeScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 20),
-
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.grey,
@@ -99,7 +141,45 @@ class HomeScreen extends StatelessWidget {
                   ),
                 ),
                 child: const Text('Iniciar viaje'),
-                onPressed: () {},
+                onPressed: () async {
+                  // Mostramos un indicador de carga opcional si tarda un segundo en buscar la cámara
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Iniciando cámara...'),
+                      duration: Duration(seconds: 1),
+                    ),
+                  );
+
+                  try {
+                    // 1. Obtenemos todas las cámaras del teléfono
+                    final cameras = await availableCameras();
+
+                    // 2. Buscamos específicamente la cámara frontal (selfie)
+                    final frontCamera = cameras.firstWhere(
+                      (camera) =>
+                          camera.lensDirection == CameraLensDirection.front,
+                      orElse: () => cameras
+                          .first, // Por si ocurre un error, usamos la principal
+                    );
+
+                    // 3. Navegamos a la pantalla de calibración pasándole la cámara
+                    if (context.mounted) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              CalibrationScreen(frontCamera: frontCamera),
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error al abrir la cámara: $e')),
+                      );
+                    }
+                  }
+                },
               ),
             ],
           ),

@@ -71,10 +71,8 @@ Future<String?> loginUsuario(String email, String password) async {
 } */
 
 // LOGIN GOOGLE WEB
-
 Future<String?> loginConGoogle() async {
   try {
-    // Esto abrirá una pestaña del navegador dentro de tu app.
     await Supabase.instance.client.auth.signInWithOAuth(
       OAuthProvider.google,
       redirectTo: 'io.supabase.safedrive://login-callback',
