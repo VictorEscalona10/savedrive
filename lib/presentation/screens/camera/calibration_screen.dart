@@ -5,7 +5,7 @@ import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
 import "package:safedrive/presentation/screens/camera/drive_screen.dart";
-import 'dart:io'; // <-- Agrega esta línea
+import 'dart:io';
 
 class CalibrationScreen extends StatefulWidget {
   final CameraDescription frontCamera;
@@ -24,7 +24,7 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
   bool _isProcessingFrame = false;
 
   // Aquí guardaremos las lecturas de los ojos durante los 5 segundos
-  List<double> _eyeOpenReadings = [];
+  final List<double> _eyeOpenReadings = [];
   double _progress = 0.0;
 
   @override
@@ -44,10 +44,9 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
   Future<void> _inicializarCamara() async {
     _cameraController = CameraController(
       widget.frontCamera,
-      ResolutionPreset
-          .low, // Usamos resolución baja para no calentar el teléfono
+      ResolutionPreset.low,
       enableAudio: false,
-      imageFormatGroup: ImageFormatGroup.yuv420, // Formato ideal para ML Kit
+      imageFormatGroup: ImageFormatGroup.yuv420,
     );
 
     await _cameraController.initialize();
@@ -72,7 +71,6 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
       _procesarFrame(image);
     });
 
-    // Temporizador de 5 segundos
     Timer.periodic(const Duration(milliseconds: 100), (timer) async {
       if (!mounted) return;
 
