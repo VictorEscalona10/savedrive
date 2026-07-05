@@ -6,8 +6,7 @@ class DriveScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor:
-          Colors.black, // Color oscuro para que no moleste al conducir de noche
+      backgroundColor: Colors.black,
       appBar: AppBar(
         title: const Text(
           'Viaje Activo',
