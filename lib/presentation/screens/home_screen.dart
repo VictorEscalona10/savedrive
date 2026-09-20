@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:camera/camera.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:safedrive/presentation/screens/camera/calibration_screen.dart';
 
 class _C {
@@ -168,6 +169,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Future<void> _iniciarViaje() async {
+    // Solicitar permiso de cámara (Android). Si no está concedido, notificar y salir.
+    final status = await Permission.camera.request();
+    if (!status.isGranted) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Permiso de cámara requerido para iniciar el viaje')),
+      );
+      return;
+    }
+
     HapticFeedback.mediumImpact();
     try {
       final cameras = await availableCameras();
@@ -331,8 +342,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               borderRadius: BorderRadius.circular(_C.r12),
               onTap: () => HapticFeedback.selectionClick(),
               child: const SizedBox(
-                width: 44,
-                height: 44,
+                width: 40,
+                height: 40,
                 child: Icon(
                   Icons.notifications_none_outlined,
                   color: _C.t2,
