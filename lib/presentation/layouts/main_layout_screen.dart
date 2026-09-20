@@ -31,16 +31,16 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
 
       bottomNavigationBar: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 15.0),
+          padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 20.0),
           child: Container(
             decoration: BoxDecoration(
               color: Color(0xFF212528),
               borderRadius: BorderRadius.circular(50),
             ),
             child: Padding(
-              padding: const EdgeInsets.all(8.0),
+              padding: const EdgeInsets.all(6.0),
               child: GNav(
-                gap: 8, // Espacio entre el icono y el texto
+                gap: 6, // Espacio entre el icono y el texto
                 backgroundColor: Colors.transparent,
                 color: Colors.white, // Color de los iconos INACTIVOS
                 activeColor: Color(
@@ -49,8 +49,8 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
                 tabBackgroundColor:
                     Colors.white, // Color de fondo de la pestaña ACTIVA
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
+                  horizontal: 14,
+                  vertical: 10,
                 ),
                 duration: const Duration(milliseconds: 300),
                 selectedIndex: _selectedIndex,

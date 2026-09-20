@@ -16,6 +16,7 @@ class _LoginFormState extends State<LoginForm> {
   final TextEditingController _passwordController = TextEditingController();
 
   bool _isLoading = false;
+  bool _obscurePassword = true;
   late final StreamSubscription<AuthState> _authStateSubscription;
 
   @override
@@ -94,79 +95,175 @@ class _LoginFormState extends State<LoginForm> {
 
   @override
   Widget build(BuildContext context) {
-    return Form(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          TextFormField(
-            controller: _emailController,
-            decoration: InputDecoration(
-              labelText: 'Email',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10.0),
+    const greenAccent = Color(0xFF4ADE80);
+
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 430),
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24.0),
+          padding: const EdgeInsets.all(24.0),
+          decoration: BoxDecoration(
+            color: Colors.black,
+            borderRadius: BorderRadius.circular(24.0),
+            border: Border.all(color: const Color(0xFF1A1A1A), width: 1.2),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.white.withOpacity(0.04),
+                blurRadius: 24,
+                offset: const Offset(0, 12),
               ),
-              prefixIcon: const Icon(Icons.person),
-            ),
-            keyboardType: TextInputType.emailAddress,
+            ],
           ),
-          const SizedBox(height: 20.0),
-          TextFormField(
-            controller: _passwordController,
-            decoration: InputDecoration(
-              labelText: 'Password',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10.0),
-              ),
-              prefixIcon: const Icon(Icons.lock),
-            ),
-            obscureText: true,
-          ),
-          const SizedBox(height: 30.0),
-          SizedBox(
-            width: double.infinity,
-            height: 50.0,
-            child: ElevatedButton(
-              onPressed: _isLoading ? null : _iniciarSesion,
-              style: ElevatedButton.styleFrom(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10.0),
-                ),
-              ),
-              child: _isLoading
-                  ? const SizedBox(
-                      height: 24,
-                      width: 24,
-                      child: CircularProgressIndicator(strokeWidth: 2.5),
-                    )
-                  : const Text('Login', style: TextStyle(fontSize: 16)),
-            ),
-          ),
-          const SizedBox(height: 20.0),
-          const Divider(),
-          const SizedBox(height: 20.0),
-          SizedBox(
-            width: double.infinity,
-            height: 50.0,
-            child: OutlinedButton.icon(
-              onPressed: _isLoading ? null : _iniciarSesionGoogle,
-              icon: _isLoading
-                  ? const SizedBox.shrink()
-                  : Image.network(
-                      'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/120px-Google_%22G%22_logo.svg.png',
-                      height: 24,
+          child: Form(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Align(
+                  alignment: Alignment.center,
+                  child: Text(
+                    'Iniciar sesión',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
                     ),
-              label: Text(
-                _isLoading ? 'Cargando...' : 'Continuar con Google',
-                style: const TextStyle(fontSize: 16, color: Colors.black87),
-              ),
-              style: OutlinedButton.styleFrom(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10.0),
+                  ),
                 ),
-              ),
+                const SizedBox(height: 8.0),
+                const Text(
+                  'Accede a tu cuenta para continuar',
+                  style: TextStyle(color: Colors.white70, fontSize: 14),
+                ),
+                const SizedBox(height: 24.0),
+                TextFormField(
+                  controller: _emailController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    labelText: 'Email',
+                    labelStyle: const TextStyle(color: Colors.white70),
+                    filled: true,
+                    fillColor: const Color(0xFF111111),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14.0),
+                      borderSide: const BorderSide(color: Color(0xFF2A2A2A)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14.0),
+                      borderSide: const BorderSide(color: Color(0xFF2A2A2A)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14.0),
+                      borderSide: const BorderSide(color: greenAccent, width: 1.8),
+                    ),
+                    prefixIcon: const Icon(Icons.person, color: greenAccent),
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                const SizedBox(height: 16.0),
+                TextFormField(
+                  controller: _passwordController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    labelText: 'Password',
+                    labelStyle: const TextStyle(color: Colors.white70),
+                    filled: true,
+                    fillColor: const Color(0xFF111111),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14.0),
+                      borderSide: const BorderSide(color: Color(0xFF2A2A2A)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14.0),
+                      borderSide: const BorderSide(color: Color(0xFF2A2A2A)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14.0),
+                      borderSide: const BorderSide(color: greenAccent, width: 1.8),
+                    ),
+                    prefixIcon: const Icon(Icons.lock, color: greenAccent),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                        color: Colors.white70,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _obscurePassword = !_obscurePassword;
+                        });
+                      },
+                    ),
+                  ),
+                  obscureText: _obscurePassword,
+                ),
+                const SizedBox(height: 24.0),
+                SizedBox(
+                  width: double.infinity,
+                  height: 50.0,
+                  child: ElevatedButton(
+                    onPressed: _isLoading ? null : _iniciarSesion,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: greenAccent,
+                      foregroundColor: Colors.black,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14.0),
+                      ),
+                    ),
+                    child: _isLoading
+                        ? const SizedBox(
+                            height: 24,
+                            width: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.5,
+                              color: Colors.black,
+                            ),
+                          )
+                        : const Text(
+                            'Login',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                  ),
+                ),
+                const SizedBox(height: 18.0),
+                const Divider(color: Color(0xFF2A2A2A), thickness: 1),
+                const SizedBox(height: 18.0),
+                SizedBox(
+                  width: double.infinity,
+                  height: 50.0,
+                  child: OutlinedButton.icon(
+                    onPressed: _isLoading ? null : _iniciarSesionGoogle,
+                    icon: _isLoading
+                        ? const SizedBox.shrink()
+                        : Image.network(
+                            'https://developers.google.com/identity/images/g-logo.png',
+                            height: 24,
+                            width: 24,
+                            fit: BoxFit.contain,
+                            errorBuilder: (context, error, stackTrace) {
+                              return const Icon(Icons.g_mobiledata, size: 24, color: Colors.white);
+                            },
+                          ),
+                    label: Text(
+                      _isLoading ? 'Cargando...' : 'Continuar con Google',
+                      style: const TextStyle(fontSize: 16, color: Colors.white),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFF2A2A2A)),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14.0),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
