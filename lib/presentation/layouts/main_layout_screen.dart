@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_nav_bar/google_nav_bar.dart'; // Importación del nuevo paquete
 import 'package:safedrive/presentation/screens/home_screen.dart';
+import 'package:safedrive/presentation/screens/profile_screen.dart';
 
 class MainLayoutScreen extends StatefulWidget {
   const MainLayoutScreen({super.key});
@@ -18,7 +19,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
     const HomeScreen(),
     const Scaffold(body: Center(child: Text('Pantalla de Archivos'))),
     const Scaffold(body: Center(child: Text('Pantalla de Perfil'))),
-    const Scaffold(body: Center(child: Text('Pantalla de tontos'))),
+    const ProfileScreen(),
   ];
 
   @override
