@@ -1,36 +1,57 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:safedrive/core/theme/theme_service.dart';
 
-// ═══════════════════════════════════════════════════════════════════════════
-//  DESIGN TOKENS — espejo de home_screen · ui-ux-pro-max
-// ═══════════════════════════════════════════════════════════════════════════
-class _C {
-  static const bg        = Color(0xFF0A0D12);
-  static const surface   = Color(0xFF141920);
-  static const surfaceHi = Color(0xFF1C2330);
-  static const brand     = Color(0xFF00C472);
-  static const brandDim  = Color(0xFF009558);
-  static const brandGlow = Color(0x2200C472);
-  static const blue      = Color(0xFF3D8EFF);
-  static const orange    = Color(0xFFFF9F3D);
-  static const red       = Color(0xFFFF5252);
-  static const t1        = Color(0xFFECF0F5);
-  static const t2        = Color(0xFF8693A4);
-  static const t3        = Color(0xFF4B5668);
-  static const border    = Color(0xFF1E2736);
-  static const r8  = 8.0;
-  static const r12 = 12.0;
-  static const r20 = 20.0;
-  static const s8  = 8.0;
-  static const s12 = 12.0;
-  static const s16 = 16.0;
-  static const s20 = 20.0;
-  static const s24 = 24.0;
+// =============================================================================
+//  HELPERS DE SANITIZACIÓN & VALIDACIÓN
+// =============================================================================
+abstract final class _InputSanitizer {
+  // Limpia y sanitiza nombres de personas (permite letras, acentos, espacios y guiones)
+  static String sanitizeName(String input) {
+    var cleaned = input.trim();
+    cleaned = cleaned.replaceAll(RegExp(r'[<>"/\\;%()={}\$\^\*\[\]]'), '');
+    cleaned = cleaned.replaceAll(RegExp(r'\s+'), ' ');
+    if (cleaned.length > 70) {
+      cleaned = cleaned.substring(0, 70);
+    }
+    return cleaned;
+  }
+
+  // Sanitiza teléfonos (conserva solo dígitos, +, -, espacios y paréntesis)
+  static String sanitizePhone(String input) {
+    var cleaned = input.trim();
+    cleaned = cleaned.replaceAll(RegExp(r'[^0-9+\-\s()]'), '');
+    cleaned = cleaned.replaceAll(RegExp(r'\s+'), ' ');
+    if (cleaned.length > 25) {
+      cleaned = cleaned.substring(0, 25);
+    }
+    return cleaned;
+  }
+
+  // Sanitiza notas médicas y observaciones clínicas
+  static String sanitizeNotes(String input) {
+    var cleaned = input.trim();
+    cleaned = cleaned.replaceAll(RegExp(r'[<>"/\\;{}\$\^]'), '');
+    if (cleaned.length > 500) {
+      cleaned = cleaned.substring(0, 500);
+    }
+    return cleaned;
+  }
+
+  static bool isValidPhoneDigits(String phone) {
+    final digitsOnly = phone.replaceAll(RegExp(r'[^0-9]'), '');
+    return digitsOnly.length >= 7 && digitsOnly.length <= 16;
+  }
+
+  static bool isValidName(String name) {
+    return name.trim().length >= 2;
+  }
 }
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
@@ -40,77 +61,219 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isLoading = true;
   bool _isSaving = false;
 
+  // Controladores de Usuario
+  final _nameCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
   String? _bloodType;
-  double _sensitivity = 5.0;
-  bool _autoTrigger = true;
 
-  final _bloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+  // Controladores de Contacto de Emergencia
+  String? _emergencyContactId;
+  final _contactNameCtrl = TextEditingController();
+  final _contactPhoneCtrl = TextEditingController();
+  final _relationshipCtrl = TextEditingController(text: 'Familiar');
+
+  final List<String> _bloodTypes = const [
+    'O+',
+    'O-',
+    'A+',
+    'A-',
+    'B+',
+    'B-',
+    'AB+',
+    'AB-',
+  ];
+
+  final List<String> _relationships = const [
+    'Familiar',
+    'Cónyuge',
+    'Padre / Madre',
+    'Hijo / Hija',
+    'Amigo / Amiga',
+    'Compañero de Trabajo',
+    'Médico Personal',
+    'Otro',
+  ];
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _loadProfile();
   }
 
   @override
   void dispose() {
+    _nameCtrl.dispose();
     _notesCtrl.dispose();
+    _contactNameCtrl.dispose();
+    _contactPhoneCtrl.dispose();
+    _relationshipCtrl.dispose();
     super.dispose();
   }
 
-  Future<void> _load() async {
+  Future<void> _loadProfile() async {
     try {
-      final uid = _supa.auth.currentUser?.id;
-      if (uid == null) {
+      final user = _supa.auth.currentUser;
+      if (user == null) {
+        if (mounted) setState(() => _isLoading = false);
         return;
       }
-      final perfil = await _supa.from('users').select().eq('id', uid).single();
-      final ajustes = await _supa.from('user_settings').select().eq('user_id', uid).maybeSingle();
-      if (mounted) {
-        setState(() {
-          _bloodType = perfil['blood_type'] as String?;
-          _notesCtrl.text = (perfil['medical_notes'] ?? '') as String;
-          if (ajustes != null) {
-            _sensitivity = (ajustes['sensitivity_level'] ?? 5).toDouble();
-            _autoTrigger = ajustes['auto_trigger_enabled'] ?? true;
-          }
-          _isLoading = false;
-        });
+
+      final uid = user.id;
+
+      // 1. Cargar datos de la tabla `users`
+      try {
+        final userRecord =
+            await _supa.from('users').select().eq('id', uid).maybeSingle();
+
+        if (userRecord != null) {
+          _nameCtrl.text = (userRecord['full_name'] as String?) ?? '';
+          _bloodType = userRecord['blood_type'] as String?;
+          _notesCtrl.text = (userRecord['medical_notes'] as String?) ?? '';
+        } else {
+          final meta = user.userMetadata;
+          _nameCtrl.text =
+              (meta?['full_name'] as String?) ??
+              (meta?['name'] as String?) ??
+              '';
+        }
+      } catch (e) {
+        debugPrint('Aviso al cargar users: $e');
       }
-    } catch (e) {
-      debugPrint('Error al cargar: $e');
+
+      // 2. Cargar contacto de emergencia principal de `emergency_contacts`
+      try {
+        final contactRecord =
+            await _supa
+                .from('emergency_contacts')
+                .select()
+                .eq('user_id', uid)
+                .order('is_primary', ascending: false)
+                .limit(1)
+                .maybeSingle();
+
+        if (contactRecord != null) {
+          _emergencyContactId = contactRecord['id'] as String?;
+          _contactNameCtrl.text =
+              (contactRecord['contact_name'] as String?) ?? '';
+          _contactPhoneCtrl.text =
+              (contactRecord['phone_number'] as String?) ?? '';
+          _relationshipCtrl.text =
+              (contactRecord['relationship'] as String?) ?? 'Familiar';
+        } else {
+          _relationshipCtrl.text = 'Familiar';
+        }
+      } catch (e) {
+        debugPrint('Aviso al cargar emergency_contacts: $e');
+        _relationshipCtrl.text = 'Familiar';
+      }
+
       if (mounted) {
         setState(() => _isLoading = false);
-        _snack('Error al cargar el perfil', isError: true);
+      }
+    } catch (e) {
+      debugPrint('Error general al cargar perfil: $e');
+      if (mounted) {
+        setState(() => _isLoading = false);
       }
     }
   }
 
   Future<void> _save() async {
     HapticFeedback.mediumImpact();
+
+    // ─── SANITIZACIÓN & COMPROBACIONES DE INPUTS ───
+    final sanitizedName = _InputSanitizer.sanitizeName(_nameCtrl.text);
+    final sanitizedNotes = _InputSanitizer.sanitizeNotes(_notesCtrl.text);
+    final sanitizedContactName = _InputSanitizer.sanitizeName(_contactNameCtrl.text);
+    final sanitizedContactPhone = _InputSanitizer.sanitizePhone(_contactPhoneCtrl.text);
+    final sanitizedRelationship = _relationshipCtrl.text.trim();
+
+    _nameCtrl.text = sanitizedName;
+    _notesCtrl.text = sanitizedNotes;
+    _contactNameCtrl.text = sanitizedContactName;
+    _contactPhoneCtrl.text = sanitizedContactPhone;
+
+    if (sanitizedName.isNotEmpty && !_InputSanitizer.isValidName(sanitizedName)) {
+      _snack('El nombre del conductor debe tener al menos 2 caracteres válidos.', isError: true);
+      return;
+    }
+
+    if (sanitizedContactName.isNotEmpty && sanitizedContactPhone.isEmpty) {
+      _snack('Por favor ingresa un teléfono para el contacto de emergencia.', isError: true);
+      return;
+    }
+    if (sanitizedContactPhone.isNotEmpty && sanitizedContactName.isEmpty) {
+      _snack('Por favor ingresa el nombre de la persona de contacto de emergencia.', isError: true);
+      return;
+    }
+    if (sanitizedContactPhone.isNotEmpty && !_InputSanitizer.isValidPhoneDigits(sanitizedContactPhone)) {
+      _snack('El teléfono de emergencia debe contener al menos 7 dígitos numéricos.', isError: true);
+      return;
+    }
+
     setState(() => _isSaving = true);
+
     try {
-      final uid = _supa.auth.currentUser?.id;
-      if (uid == null) {
-        return;
+      final user = _supa.auth.currentUser;
+      if (user == null) {
+        throw 'No hay una sesión activa en Supabase. Inicia sesión nuevamente.';
       }
-      await _supa.from('users').update({
-        'blood_type': _bloodType,
-        'medical_notes': _notesCtrl.text.trim()
-      }).eq('id', uid);
-      await _supa.from('user_settings').upsert({
-        'user_id': uid,
-        'sensitivity_level': _sensitivity.toInt(),
-        'auto_trigger_enabled': _autoTrigger,
-        'updated_at': DateTime.now().toIso8601String()
-      });
-      if (mounted) {
-        _snack('Cambios guardados');
+
+      final uid = user.id;
+
+      // PASO 1: Guardar en public.users
+      final existingUser =
+          await _supa.from('users').select('id').eq('id', uid).maybeSingle();
+
+      if (existingUser != null) {
+        await _supa.from('users').update({
+          'full_name': sanitizedName.isNotEmpty ? sanitizedName : null,
+          'blood_type': _bloodType,
+          'medical_notes': sanitizedNotes.isNotEmpty ? sanitizedNotes : null,
+        }).eq('id', uid);
+      } else {
+        await _supa.from('users').insert({
+          'id': uid,
+          'email': user.email,
+          'full_name': sanitizedName.isNotEmpty ? sanitizedName : null,
+          'blood_type': _bloodType,
+          'medical_notes': sanitizedNotes.isNotEmpty ? sanitizedNotes : null,
+        });
       }
+
+      // PASO 2: Guardar o actualizar contacto de emergencia
+      if (sanitizedContactName.isNotEmpty && sanitizedContactPhone.isNotEmpty) {
+        if (_emergencyContactId != null) {
+          await _supa.from('emergency_contacts').update({
+            'contact_name': sanitizedContactName,
+            'phone_number': sanitizedContactPhone,
+            'relationship': sanitizedRelationship.isNotEmpty ? sanitizedRelationship : 'Familiar',
+            'is_primary': true,
+          }).eq('id', _emergencyContactId!);
+        } else {
+          final res = await _supa.from('emergency_contacts').insert({
+            'user_id': uid,
+            'contact_name': sanitizedContactName,
+            'phone_number': sanitizedContactPhone,
+            'relationship': sanitizedRelationship.isNotEmpty ? sanitizedRelationship : 'Familiar',
+            'is_primary': true,
+          }).select('id').single();
+
+          _emergencyContactId = res['id'] as String?;
+        }
+      }
+
+      _snack('¡Perfil médico y contacto guardados exitosamente!');
     } catch (e) {
-      if (mounted) {
-        _snack('Error: $e', isError: true);
+      debugPrint('Error al guardar datos de perfil: $e');
+      final errStr = e.toString();
+      if (errStr.contains('violates row-level security')) {
+        _snack(
+          'Error RLS: Debes habilitar políticas INSERT/UPDATE en Supabase.',
+          isError: true,
+        );
+      } else {
+        _snack('Error al guardar en Supabase: $e', isError: true);
       }
     } finally {
       if (mounted) {
@@ -123,9 +286,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     HapticFeedback.mediumImpact();
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => _LogoutDialog(
-        onConfirm: () => Navigator.of(ctx).pop(true),
-        onCancel: () => Navigator.of(ctx).pop(false),
+      builder: (ctx) => ValueListenableBuilder<bool>(
+        valueListenable: ThemeService.isDarkMode,
+        builder: (_, isDark, __) => _LogoutDialog(
+          isDark: isDark,
+          onConfirm: () => Navigator.of(ctx).pop(true),
+          onCancel: () => Navigator.of(ctx).pop(false),
+        ),
       ),
     );
     if (ok == true) {
@@ -137,237 +304,624 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _snack(String msg, {bool isError = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(msg, style: const TextStyle(fontWeight: FontWeight.w500)),
-      backgroundColor: isError ? _C.red : _C.brand,
-      behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_C.r12)),
-      margin: const EdgeInsets.all(_C.s16),
-    ));
-  }
-
-  String get _sensitivityLabel {
-    final v = _sensitivity.toInt();
-    if (v <= 2) return 'Muy baja';
-    if (v <= 4) return 'Baja';
-    if (v <= 6) return 'Normal';
-    if (v <= 8) return 'Alta';
-    return 'Maxima';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(
+              isError
+                  ? Icons.error_outline_rounded
+                  : Icons.check_circle_outline_rounded,
+              color: Colors.white,
+              size: 20,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                msg,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: isError ? AppColors.red : AppColors.brand,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        margin: const EdgeInsets.all(16),
+        duration: const Duration(seconds: 4),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final user = _supa.auth.currentUser;
     final meta = user?.userMetadata;
-    final name = (meta?['full_name'] as String?) ?? user?.email?.split('@').first ?? 'Usuario';
+    final name =
+        _nameCtrl.text.isNotEmpty
+            ? _nameCtrl.text
+            : (meta?['full_name'] as String?) ??
+                user?.email?.split('@').first ??
+                'Conductor';
     final email = user?.email ?? '';
     final avatar = meta?['avatar_url'] as String?;
     final bottomPad = MediaQuery.of(context).padding.bottom + 88.0;
 
-    return Scaffold(
-      backgroundColor: _C.bg,
-      body: SafeArea(
-        bottom: false,
-        child: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: _C.brand, strokeWidth: 2))
-          : CustomScrollView(
-              physics: const BouncingScrollPhysics(),
-              slivers: [
-                SliverToBoxAdapter(child: _ProfileHeader(name: name, email: email, avatar: avatar)),
-                SliverPadding(padding: const EdgeInsets.fromLTRB(_C.s16, _C.s20, _C.s16, 0),
-                  sliver: SliverToBoxAdapter(child: _medicalSection())),
-                SliverPadding(padding: const EdgeInsets.fromLTRB(_C.s16, _C.s16, _C.s16, 0),
-                  sliver: SliverToBoxAdapter(child: _settingsSection())),
-                SliverPadding(padding: const EdgeInsets.fromLTRB(_C.s16, _C.s24, _C.s16, 0),
-                  sliver: SliverToBoxAdapter(child: _saveBtn())),
-                SliverPadding(padding: const EdgeInsets.fromLTRB(_C.s16, _C.s12, _C.s16, 0),
-                  sliver: SliverToBoxAdapter(child: _logoutBtn())),
-                SliverToBoxAdapter(child: SizedBox(height: bottomPad)),
-              ],
-            ),
-      ),
+    return ValueListenableBuilder<bool>(
+      valueListenable: ThemeService.isDarkMode,
+      builder: (context, isDark, _) {
+        return Scaffold(
+          backgroundColor: AppColors.bg(isDark),
+          body: SafeArea(
+            bottom: false,
+            child: _isLoading
+                ? const Center(
+                    child: CircularProgressIndicator(
+                      color: AppColors.brand,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : CustomScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    slivers: [
+                      SliverToBoxAdapter(
+                        child: _ProfileHeader(
+                          name: name,
+                          email: email,
+                          avatar: avatar,
+                          bloodType: _bloodType,
+                          isDark: isDark,
+                        ),
+                      ),
+                      // Sección 1: Información Personal del Conductor
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+                        sliver: SliverToBoxAdapter(child: _driverInfoSection(isDark)),
+                      ),
+                      // Sección 2: Ficha Médica y Tipo de Sangre
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                        sliver: SliverToBoxAdapter(child: _medicalSection(isDark)),
+                      ),
+                      // Sección 3: Contacto de Emergencia
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                        sliver: SliverToBoxAdapter(child: _emergencySection(isDark)),
+                      ),
+                      // Botón Guardar Cambios
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+                        sliver: SliverToBoxAdapter(child: _saveBtn(isDark)),
+                      ),
+                      // Botón Cerrar Sesión
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                        sliver: SliverToBoxAdapter(child: _logoutBtn(isDark)),
+                      ),
+                      SliverToBoxAdapter(child: SizedBox(height: bottomPad)),
+                    ],
+                  ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _medicalSection() => _Section(
-    icon: Icons.favorite_border_rounded,
-    iconColor: _C.red,
-    title: 'Datos medicos',
-    child: Column(children: [
-      // Blood type
-      Padding(padding: const EdgeInsets.fromLTRB(_C.s16, 4, _C.s16, 4),
-        child: Row(children: [
-          _IconBox(icon: Icons.bloodtype_outlined, color: _C.red),
-          const SizedBox(width: _C.s12),
-          Expanded(child: DropdownButtonFormField<String>(
-            initialValue: _bloodType,
-            dropdownColor: _C.surfaceHi,
-            style: const TextStyle(color: _C.t1, fontSize: 14),
-            iconEnabledColor: _C.t2,
-            decoration: const InputDecoration(
-              labelText: 'Tipo de sangre',
-              labelStyle: TextStyle(color: _C.t2, fontSize: 13),
-              border: InputBorder.none, enabledBorder: InputBorder.none, focusedBorder: InputBorder.none),
-            items: _bloodTypes.map((t) => DropdownMenuItem(value: t, child: Text(t, style: const TextStyle(color: _C.t1)))).toList(),
-            onChanged: (v) => setState(() => _bloodType = v),
-          )),
-        ])),
-      const _SDivider(),
-      // Notes
-      Padding(padding: const EdgeInsets.fromLTRB(_C.s16, 8, _C.s16, 8),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Padding(padding: const EdgeInsets.only(top: 12), child: _IconBox(icon: Icons.medical_information_outlined, color: _C.blue)),
-          const SizedBox(width: _C.s12),
-          Expanded(child: TextField(
-            controller: _notesCtrl, maxLines: 3,
-            style: const TextStyle(color: _C.t1, fontSize: 14),
-            decoration: const InputDecoration(
-              hintText: 'Alergias, condiciones medicas...',
-              hintStyle: TextStyle(color: _C.t3, fontSize: 13),
-              labelText: 'Notas medicas',
-              labelStyle: TextStyle(color: _C.t2, fontSize: 13),
-              border: InputBorder.none, enabledBorder: InputBorder.none, focusedBorder: InputBorder.none),
-          )),
-        ])),
-    ]),
-  );
+  // ---------------------------------------------------------------------------
+  // SECCIÓN 1: DATOS DEL CONDUCTOR
+  // ---------------------------------------------------------------------------
+  Widget _driverInfoSection(bool isDark) => _Section(
+        icon: Icons.person_outline_rounded,
+        iconColor: AppColors.cyan,
+        title: 'Información del Conductor',
+        isDark: isDark,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              _IconBox(icon: Icons.badge_outlined, color: AppColors.cyan),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextField(
+                  controller: _nameCtrl,
+                  maxLength: 70,
+                  style: TextStyle(
+                    color: AppColors.t1(isDark),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: 'Nombre completo',
+                    labelStyle: TextStyle(color: AppColors.t2(isDark), fontSize: 13),
+                    hintText: 'Tu nombre y apellido',
+                    hintStyle: TextStyle(color: AppColors.t3(isDark), fontSize: 13),
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    counterText: '',
+                    isDense: true,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
 
-  Widget _settingsSection() => _Section(
-    icon: Icons.tune_outlined,
-    iconColor: _C.blue,
-    title: 'Ajustes de SafeDrive',
-    child: Column(children: [
-      // Auto trigger
-      Padding(padding: const EdgeInsets.symmetric(horizontal: _C.s16, vertical: 4),
-        child: Row(children: [
-          _IconBox(icon: Icons.alarm_outlined, color: _C.orange),
-          const SizedBox(width: _C.s12),
-          const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Disparo automatico', style: TextStyle(color: _C.t1, fontSize: 14, fontWeight: FontWeight.w600)),
-            SizedBox(height: 2),
-            Text('Activa la alarma al detectar somnolencia', style: TextStyle(color: _C.t2, fontSize: 12)),
-          ])),
-          Switch(value: _autoTrigger, onChanged: (v) => setState(() => _autoTrigger = v),
-            activeThumbColor: _C.brand, activeTrackColor: _C.brandGlow,
-            inactiveThumbColor: _C.t2, inactiveTrackColor: _C.border),
-        ])),
-      const _SDivider(),
-      // Sensitivity
-      Padding(padding: const EdgeInsets.fromLTRB(_C.s16, _C.s12, _C.s16, 8),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            _IconBox(icon: Icons.sensors_outlined, color: _C.blue),
-            const SizedBox(width: _C.s12),
-            const Text('Sensibilidad del sensor', style: TextStyle(color: _C.t1, fontSize: 14, fontWeight: FontWeight.w600)),
-            const Spacer(),
-            Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(color: _C.blue.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
-              child: Text('$_sensitivityLabel (${_sensitivity.toInt()})',
-                style: const TextStyle(color: _C.blue, fontSize: 11, fontWeight: FontWeight.w600))),
-          ]),
-          const SizedBox(height: 8),
-          SliderTheme(data: SliderTheme.of(context).copyWith(
-            activeTrackColor: _C.blue, inactiveTrackColor: _C.border,
-            thumbColor: _C.blue, overlayColor: _C.blue.withValues(alpha: 0.12),
-            valueIndicatorColor: _C.surfaceHi,
-            valueIndicatorTextStyle: const TextStyle(color: _C.t1),
-            trackHeight: 3,
-          ), child: Slider(value: _sensitivity, min: 1, max: 10, divisions: 9,
-            label: _sensitivity.toInt().toString(), onChanged: (v) => setState(() => _sensitivity = v))),
-          const Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            Text('Menos sensible', style: TextStyle(color: _C.t2, fontSize: 11)),
-            Text('Muy sensible', style: TextStyle(color: _C.t2, fontSize: 11)),
-          ]),
-        ])),
-    ]),
-  );
+  // ---------------------------------------------------------------------------
+  // SECCIÓN 2: DATOS MÉDICOS
+  // ---------------------------------------------------------------------------
+  Widget _medicalSection(bool isDark) => _Section(
+        icon: Icons.medical_services_outlined,
+        iconColor: AppColors.red,
+        title: 'Ficha Médica de Emergencia',
+        isDark: isDark,
+        child: Column(
+          children: [
+            // Selector de Tipo de Sangre
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              child: Row(
+                children: [
+                  _IconBox(icon: Icons.bloodtype_outlined, color: AppColors.red),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      initialValue: _bloodType,
+                      dropdownColor: AppColors.card(isDark),
+                      style: TextStyle(
+                        color: AppColors.t1(isDark),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      iconEnabledColor: AppColors.t2(isDark),
+                      decoration: InputDecoration(
+                        labelText: 'Tipo de Sangre',
+                        labelStyle: TextStyle(color: AppColors.t2(isDark), fontSize: 13),
+                        hintText: 'Selecciona tu grupo sanguíneo',
+                        hintStyle: TextStyle(color: AppColors.t3(isDark), fontSize: 13),
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        isDense: true,
+                      ),
+                      items: _bloodTypes
+                          .map(
+                            (t) => DropdownMenuItem(
+                              value: t,
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0x20EF4444),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      t,
+                                      style: const TextStyle(
+                                        color: AppColors.red,
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text('Grupo $t', style: TextStyle(color: AppColors.t1(isDark))),
+                                ],
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (val) {
+                        HapticFeedback.selectionClick();
+                        setState(() => _bloodType = val);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            _SDivider(isDark: isDark),
+            // Notas Médicas / Alergias
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4.0),
+                    child: _IconBox(icon: Icons.note_alt_outlined, color: AppColors.orange),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: _notesCtrl,
+                      maxLines: 3,
+                      maxLength: 500,
+                      style: TextStyle(
+                        color: AppColors.t1(isDark),
+                        fontSize: 14,
+                        height: 1.4,
+                      ),
+                      decoration: InputDecoration(
+                        labelText: 'Condiciones médicas, alergias o fármacos',
+                        labelStyle: TextStyle(color: AppColors.t2(isDark), fontSize: 13),
+                        hintText: 'Ej. Alérgico a penicilina, hipertenso, uso de lentes...',
+                        hintStyle: TextStyle(color: AppColors.t3(isDark), fontSize: 12),
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        counterStyle: TextStyle(color: AppColors.t3(isDark), fontSize: 11),
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
 
-  Widget _saveBtn() => GestureDetector(
-    onTap: _isSaving ? null : _save,
-    child: AnimatedContainer(duration: const Duration(milliseconds: 200),
-      height: 56,
-      decoration: BoxDecoration(
-        gradient: _isSaving ? null : const LinearGradient(colors: [_C.brand, _C.brandDim], begin: Alignment.topLeft, end: Alignment.bottomRight),
-        color: _isSaving ? _C.surface : null,
-        borderRadius: BorderRadius.circular(_C.r20),
-        border: _isSaving ? Border.all(color: _C.border) : null,
-        boxShadow: _isSaving ? null : const [BoxShadow(color: Color(0x4800C472), blurRadius: 24, spreadRadius: -4, offset: Offset(0, 8))],
-      ),
-      child: Center(child: _isSaving
-        ? const Row(mainAxisSize: MainAxisSize.min, children: [
-            SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: _C.brand, strokeWidth: 2)),
-            SizedBox(width: 10),
-            Text('Guardando...', style: TextStyle(color: _C.t2, fontSize: 15, fontWeight: FontWeight.w600)),
-          ])
-        : const Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(Icons.check_rounded, color: Colors.white, size: 20),
-            SizedBox(width: 8),
-            Text('Guardar cambios', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700, letterSpacing: -0.1)),
-          ])),
-    ),
-  );
+  // ---------------------------------------------------------------------------
+  // SECCIÓN 3: CONTACTO DE EMERGENCIA
+  // ---------------------------------------------------------------------------
+  Widget _emergencySection(bool isDark) => _Section(
+        icon: Icons.contact_phone_outlined,
+        iconColor: AppColors.brand,
+        title: 'Contacto de Emergencia en Ruta',
+        isDark: isDark,
+        child: Column(
+          children: [
+            // Nombre del contacto
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              child: Row(
+                children: [
+                  _IconBox(icon: Icons.person_add_alt_1_outlined, color: AppColors.brand),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: _contactNameCtrl,
+                      maxLength: 70,
+                      style: TextStyle(
+                        color: AppColors.t1(isDark),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      decoration: InputDecoration(
+                        labelText: 'Nombre del Contacto',
+                        labelStyle: TextStyle(color: AppColors.t2(isDark), fontSize: 13),
+                        hintText: 'Ej. María Pérez (Madre)',
+                        hintStyle: TextStyle(color: AppColors.t3(isDark), fontSize: 13),
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        counterText: '',
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            _SDivider(isDark: isDark),
+            // Teléfono del contacto
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              child: Row(
+                children: [
+                  _IconBox(icon: Icons.phone_forwarded_outlined, color: AppColors.brand),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: _contactPhoneCtrl,
+                      keyboardType: TextInputType.phone,
+                      maxLength: 25,
+                      style: TextStyle(
+                        color: AppColors.t1(isDark),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      decoration: InputDecoration(
+                        labelText: 'Número de Teléfono',
+                        labelStyle: TextStyle(color: AppColors.t2(isDark), fontSize: 13),
+                        hintText: '+1 234 567 8900',
+                        hintStyle: TextStyle(color: AppColors.t3(isDark), fontSize: 13),
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        counterText: '',
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            _SDivider(isDark: isDark),
+            // Parentesco
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+              child: Row(
+                children: [
+                  _IconBox(icon: Icons.family_restroom_outlined, color: AppColors.brand),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      value: _relationships.contains(_relationshipCtrl.text)
+                          ? _relationshipCtrl.text
+                          : 'Familiar',
+                      dropdownColor: AppColors.card(isDark),
+                      style: TextStyle(
+                        color: AppColors.t1(isDark),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      iconEnabledColor: AppColors.t2(isDark),
+                      decoration: InputDecoration(
+                        labelText: 'Parentesco / Relación',
+                        labelStyle: TextStyle(color: AppColors.t2(isDark), fontSize: 13),
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        isDense: true,
+                      ),
+                      items: _relationships
+                          .map((r) => DropdownMenuItem(value: r, child: Text(r)))
+                          .toList(),
+                      onChanged: (val) {
+                        if (val != null) {
+                          HapticFeedback.selectionClick();
+                          setState(() => _relationshipCtrl.text = val);
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
 
-  Widget _logoutBtn() => GestureDetector(
-    onTap: _logout,
-    child: Container(height: 56,
-      decoration: BoxDecoration(color: _C.surface, borderRadius: BorderRadius.circular(_C.r20),
-        border: Border.all(color: _C.red.withValues(alpha: 0.3))),
-      child: const Center(child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(Icons.logout_rounded, color: _C.red, size: 20),
-        SizedBox(width: 8),
-        Text('Cerrar sesion', style: TextStyle(color: _C.red, fontSize: 15, fontWeight: FontWeight.w600)),
-      ])),
-    ),
-  );
+  // ---------------------------------------------------------------------------
+  // BOTÓN GUARDAR CAMBIOS
+  // ---------------------------------------------------------------------------
+  Widget _saveBtn(bool isDark) => GestureDetector(
+        onTap: _isSaving ? null : _save,
+        child: Container(
+          height: 56,
+          decoration: BoxDecoration(
+            gradient: _isSaving
+                ? null
+                : const LinearGradient(
+                    colors: [AppColors.brand, AppColors.brandDim],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+            color: _isSaving ? AppColors.card(isDark) : null,
+            borderRadius: BorderRadius.circular(20),
+            border: _isSaving ? Border.all(color: AppColors.border(isDark)) : null,
+            boxShadow: _isSaving
+                ? null
+                : [
+                    BoxShadow(
+                      color: AppColors.brand.withValues(alpha: 0.3),
+                      blurRadius: 24,
+                      spreadRadius: -4,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+          ),
+          child: Center(
+            child: _isSaving
+                ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          color: AppColors.brand,
+                          strokeWidth: 2,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        'Guardando en Supabase...',
+                        style: TextStyle(
+                          color: AppColors.t2(isDark),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  )
+                : const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.cloud_done_rounded, color: Colors.white, size: 20),
+                      SizedBox(width: 8),
+                      Text(
+                        'Guardar Datos Médicos y Contacto',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.1,
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+        ),
+      );
+
+  // ---------------------------------------------------------------------------
+  // BOTÓN CERRAR SESIÓN
+  // ---------------------------------------------------------------------------
+  Widget _logoutBtn(bool isDark) => GestureDetector(
+        onTap: _logout,
+        child: Container(
+          height: 54,
+          decoration: BoxDecoration(
+            color: AppColors.card(isDark),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppColors.red.withValues(alpha: 0.3)),
+          ),
+          child: const Center(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.logout_rounded, color: AppColors.red, size: 18),
+                SizedBox(width: 8),
+                Text(
+                  'Cerrar sesión segura',
+                  style: TextStyle(
+                    color: AppColors.red,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-//  REUSABLE WIDGETS
-// ═══════════════════════════════════════════════════════════════════════════
+// =============================================================================
+//  WIDGETS REUTILIZABLES
+// =============================================================================
 
 class _ProfileHeader extends StatelessWidget {
   final String name, email;
   final String? avatar;
-  const _ProfileHeader({required this.name, required this.email, this.avatar});
+  final String? bloodType;
+  final bool isDark;
+
+  const _ProfileHeader({
+    required this.name,
+    required this.email,
+    this.avatar,
+    this.bloodType,
+    required this.isDark,
+  });
 
   @override
   Widget build(BuildContext context) {
     final firstName = name.split(' ').first;
     return Container(
-      margin: const EdgeInsets.fromLTRB(_C.s16, _C.s20, _C.s16, 0),
-      padding: const EdgeInsets.all(_C.s20),
+      margin: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [Color(0xFF06231B), Color(0xFF041510)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-        borderRadius: BorderRadius.circular(_C.r20),
-        border: Border.all(color: const Color(0x3300C472)),
-        boxShadow: const [BoxShadow(color: Color(0x1200C472), blurRadius: 24, spreadRadius: -4, offset: Offset(0, 6))],
+        color: AppColors.card(isDark),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDark ? const Color(0x3310B981) : const Color(0x3310B981),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: isDark ? const Color(0x1810B981) : const Color(0x0A000000),
+            blurRadius: 24,
+            spreadRadius: -4,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
-      child: Row(children: [
-        Container(width: 66, height: 66,
-          decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: _C.brand, width: 2.5), color: const Color(0xFF06231B)),
-          child: ClipOval(child: avatar != null
-            ? Image.network(avatar!, fit: BoxFit.cover, errorBuilder: (context, error, stackTrace) => _fallback(firstName))
-            : _fallback(firstName))),
-        const SizedBox(width: _C.s16),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(name, style: const TextStyle(color: _C.t1, fontSize: 18, fontWeight: FontWeight.w700, letterSpacing: -0.3), overflow: TextOverflow.ellipsis),
-          const SizedBox(height: 3),
-          Text(email, style: const TextStyle(color: _C.t2, fontSize: 12), overflow: TextOverflow.ellipsis),
-          const SizedBox(height: 8),
-          Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(color: _C.brandGlow, borderRadius: BorderRadius.circular(20)),
-            child: const Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(Icons.verified_outlined, color: _C.brand, size: 11),
-              SizedBox(width: 4),
-              Text('Cuenta activa', style: TextStyle(color: _C.brand, fontSize: 10, fontWeight: FontWeight.w600)),
-            ])),
-        ])),
-      ]),
+      child: Row(
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.brand, width: 2.5),
+              color: AppColors.cardSecondary(isDark),
+            ),
+            child: ClipOval(
+              child: avatar != null
+                  ? Image.network(
+                      avatar!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => _fallback(firstName),
+                    )
+                  : _fallback(firstName),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: TextStyle(
+                    color: AppColors.t1(isDark),
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.3,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  email,
+                  style: TextStyle(color: AppColors.t2(isDark), fontSize: 12),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (bloodType != null) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: const Color(0x25EF4444),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0x55EF4444), width: 1),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.bloodtype, color: AppColors.red, size: 12),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Tipo $bloodType',
+                          style: const TextStyle(
+                            color: AppColors.red,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _fallback(String first) => Center(child: Text(first.isNotEmpty ? first[0].toUpperCase() : 'U',
-      style: const TextStyle(color: _C.brand, fontSize: 24, fontWeight: FontWeight.w700)));
+  Widget _fallback(String first) => Center(
+        child: Text(
+          first.isNotEmpty ? first[0].toUpperCase() : 'U',
+          style: const TextStyle(
+            color: AppColors.brand,
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      );
 }
 
 class _Section extends StatelessWidget {
@@ -375,56 +929,142 @@ class _Section extends StatelessWidget {
   final Color iconColor;
   final String title;
   final Widget child;
-  const _Section({required this.icon, required this.iconColor, required this.title, required this.child});
+  final bool isDark;
+
+  const _Section({
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    required this.child,
+    required this.isDark,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [
-        Container(width: 28, height: 28,
-          decoration: BoxDecoration(color: iconColor.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(_C.r8)),
-          child: Icon(icon, color: iconColor, size: 14)),
-        const SizedBox(width: _C.s8),
-        Text(title, style: const TextStyle(color: _C.t1, fontSize: 15, fontWeight: FontWeight.w700, letterSpacing: -0.1)),
-      ]),
-      const SizedBox(height: _C.s12),
-      Container(decoration: BoxDecoration(color: _C.surface, borderRadius: BorderRadius.circular(_C.r20), border: Border.all(color: _C.border)),
-        child: child),
-    ]);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, color: iconColor, size: 14),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              title,
+              style: TextStyle(
+                color: AppColors.t1(isDark),
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.1,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.card(isDark),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppColors.border(isDark)),
+            boxShadow: [
+              BoxShadow(
+                color: isDark ? const Color(0x14000000) : const Color(0x08000000),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: child,
+        ),
+      ],
+    );
   }
 }
 
 class _IconBox extends StatelessWidget {
   final IconData icon;
   final Color color;
+
   const _IconBox({required this.icon, required this.color});
+
   @override
-  Widget build(BuildContext context) => Container(width: 32, height: 32,
-    decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(_C.r8)),
-    child: Icon(icon, color: color, size: 16));
+  Widget build(BuildContext context) => Container(
+        width: 34,
+        height: 34,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(icon, color: color, size: 17),
+      );
 }
 
 class _SDivider extends StatelessWidget {
-  const _SDivider();
+  final bool isDark;
+  const _SDivider({required this.isDark});
+
   @override
-  Widget build(BuildContext context) => const Divider(height: 1, thickness: 1, color: _C.border, indent: 16, endIndent: 16);
+  Widget build(BuildContext context) => Divider(
+        height: 1,
+        thickness: 1,
+        color: AppColors.border(isDark),
+        indent: 16,
+        endIndent: 16,
+      );
 }
 
 class _LogoutDialog extends StatelessWidget {
+  final bool isDark;
   final VoidCallback onConfirm, onCancel;
-  const _LogoutDialog({required this.onConfirm, required this.onCancel});
+
+  const _LogoutDialog({
+    required this.isDark,
+    required this.onConfirm,
+    required this.onCancel,
+  });
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      backgroundColor: _C.surfaceHi,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_C.r20), side: const BorderSide(color: _C.border)),
-      title: const Text('Cerrar sesion', style: TextStyle(color: _C.t1, fontWeight: FontWeight.w700, fontSize: 17)),
-      content: const Text('Tu sesion se cerrara. Deberas iniciar sesion nuevamente para continuar.',
-          style: TextStyle(color: _C.t2, fontSize: 14, height: 1.5)),
+      backgroundColor: AppColors.card(isDark),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: AppColors.border(isDark)),
+      ),
+      title: Text(
+        'Cerrar sesión',
+        style: TextStyle(
+          color: AppColors.t1(isDark),
+          fontWeight: FontWeight.w700,
+          fontSize: 17,
+        ),
+      ),
+      content: Text(
+        'Tu sesión se cerrará de forma segura. Deberás ingresar tus credenciales para volver a entrar.',
+        style: TextStyle(color: AppColors.t2(isDark), fontSize: 14, height: 1.5),
+      ),
       actions: [
-        TextButton(onPressed: onCancel, child: const Text('Cancelar', style: TextStyle(color: _C.t2, fontWeight: FontWeight.w500))),
-        TextButton(onPressed: onConfirm, child: const Text('Cerrar sesion', style: TextStyle(color: _C.red, fontWeight: FontWeight.w600))),
+        TextButton(
+          onPressed: onCancel,
+          child: Text(
+            'Cancelar',
+            style: TextStyle(color: AppColors.t2(isDark), fontWeight: FontWeight.w500),
+          ),
+        ),
+        TextButton(
+          onPressed: onConfirm,
+          child: const Text(
+            'Cerrar sesión',
+            style: TextStyle(color: AppColors.red, fontWeight: FontWeight.w600),
+          ),
+        ),
       ],
     );
   }

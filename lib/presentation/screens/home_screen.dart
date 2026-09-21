@@ -4,102 +4,56 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:camera/camera.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:safedrive/presentation/screens/camera/calibration_screen.dart';
-
-class _C {
-  static const bg = Color(0xFF0A0D12);
-  static const surface = Color(0xFF141920);
-  static const brand = Color(0xFF00C472);
-  static const brandDim = Color(0xFF009558);
-  static const brandGlow = Color(0x2200C472);
-  static const blue = Color(0xFF3D8EFF);
-  static const orange = Color(0xFFFF9F3D);
-  static const red = Color(0xFFFF5252);
-  static const t1 = Color(0xFFECF0F5);
-  static const t2 = Color(0xFF8693A4);
-  static const border = Color(0xFF1E2736);
-  static const r8 = 8.0;
-  static const r12 = 12.0;
-  static const r16 = 16.0;
-  static const r20 = 20.0;
-  static const s8 = 8.0;
-  static const s12 = 12.0;
-  static const s16 = 16.0;
-  static const s20 = 20.0;
-  static const s24 = 24.0;
-}
-
-class _Tip {
-  final IconData icon;
-  final Color color;
-  final String title;
-  final String body;
-  const _Tip(this.icon, this.color, this.title, this.body);
-}
-
-const _kTips = <_Tip>[
-  _Tip(
-    Icons.coffee_outlined,
-    _C.orange,
-    'Toma descansos',
-    'Detente cada 2 h. La fatiga reduce reflejos hasta un 50 %.',
-  ),
-  _Tip(
-    Icons.phone_iphone_outlined,
-    _C.red,
-    'Evita el telefono',
-    'El movil cuadruplica el riesgo de accidente.',
-  ),
-  _Tip(
-    Icons.air_outlined,
-    _C.blue,
-    'Ventila el auto',
-    'El CO2 acumulado provoca somnolencia en minutos.',
-  ),
-  _Tip(
-    Icons.remove_red_eye_outlined,
-    _C.brand,
-    'Descansa los ojos',
-    'Regla 20-20-20: mira lejos 20 s cada 20 min.',
-  ),
-];
+import 'package:safedrive/core/theme/theme_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
+class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
   final _supa = Supabase.instance.client;
-  String _nombre = 'Usuario';
+  String _nombre = 'Conductor';
   String? _avatarUrl;
   bool _loadingStats = true;
-  int _trips = 0, _alerts = 0, _score = 0;
+  int _trips = 0;
+  int _alerts = 0;
+  int _score = 100;
 
-  late AnimationController _fadeCtrl, _pulseCtrl;
-  late Animation<double> _fadeAnim, _pulseScale;
-  late Animation<Offset> _headerSlide;
+  late AnimationController _fadeCtrl;
+  late Animation<double> _fadeAnim;
+
+  final List<Map<String, dynamic>> _quickTips = [
+    {
+      'icon': Icons.remove_red_eye_outlined,
+      'color': AppColors.brand,
+      'title': 'Regla 20-20-20',
+      'body': 'Parpadea regularmente y mantén la vista relajada en trayectos largos.',
+    },
+    {
+      'icon': Icons.local_cafe_outlined,
+      'color': AppColors.orange,
+      'title': 'Pausa cada 2 horas',
+      'body': 'Hacer paradas cortas restaura tus reflejos hasta en un 40%.',
+    },
+    {
+      'icon': Icons.air_outlined,
+      'color': AppColors.cyan,
+      'title': 'Buena ventilación',
+      'body': 'El aire fresco y una temperatura adecuada previenen la somnolencia.',
+    },
+  ];
 
   @override
   void initState() {
     super.initState();
     _fadeCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 550),
+      duration: const Duration(milliseconds: 500),
     );
-    _pulseCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2200),
-    )..repeat(reverse: true);
     _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOut);
-    _headerSlide = Tween<Offset>(
-      begin: const Offset(0, -0.12),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOutCubic));
-    _pulseScale = Tween<double>(
-      begin: 0.88,
-      end: 1.0,
-    ).animate(CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut));
     _fadeCtrl.forward();
     _loadData();
   }
@@ -107,14 +61,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Future<void> _loadData() async {
     final user = _supa.auth.currentUser;
     if (user == null) {
-      if (mounted) {
-        setState(() => _loadingStats = false);
-      }
+      if (mounted) setState(() => _loadingStats = false);
       return;
     }
 
     final meta = user.userMetadata;
-    final fallback = user.email?.split('@').first ?? 'Usuario';
+    final fallback = user.email?.split('@').first ?? 'Conductor';
     final initialName =
         (meta?['full_name'] as String?) ??
         (meta?['name'] as String?) ??
@@ -137,15 +89,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         fullName = dbName;
       }
     } catch (e) {
-      debugPrint('No se pudo cargar el perfil de la base de datos: $e');
+      debugPrint('No se pudo cargar perfil de users: $e');
     }
 
     int trips = 0;
     int alerts = 0;
     int score = 100;
     try {
-      final rows =
-          await _supa.from('trips').select().eq('user_id', user.id) as List;
+      final rows = await _supa.from('trips').select().eq('user_id', user.id) as List;
       trips = rows.length;
       for (final r in rows) {
         alerts += ((r['alert_count'] ?? 0) as num).toInt();
@@ -169,12 +120,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Future<void> _iniciarViaje() async {
-    // Solicitar permiso de cámara (Android). Si no está concedido, notificar y salir.
     final status = await Permission.camera.request();
     if (!status.isGranted) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Permiso de cámara requerido para iniciar el viaje')),
+        const SnackBar(
+          content: Text('Permiso de cámara requerido para monitoreo facial.'),
+          backgroundColor: AppColors.red,
+        ),
       );
       return;
     }
@@ -189,32 +142,24 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       if (!mounted) return;
       await Navigator.of(context).push(
         PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) =>
-              CalibrationScreen(frontCamera: front),
-          transitionsBuilder: (context, anim, secondaryAnim, child) =>
-              FadeTransition(
-                opacity: anim,
-                child: SlideTransition(
-                  position:
-                      Tween<Offset>(
-                        begin: const Offset(0, 0.04),
-                        end: Offset.zero,
-                      ).animate(
-                        CurvedAnimation(
-                          parent: anim,
-                          curve: Curves.easeOutCubic,
-                        ),
-                      ),
-                  child: child,
-                ),
-              ),
-          transitionDuration: const Duration(milliseconds: 350),
+          pageBuilder: (context, anim, secAnim) => CalibrationScreen(frontCamera: front),
+          transitionsBuilder: (context, anim, secAnim, child) => FadeTransition(
+            opacity: anim,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, 0.05),
+                end: Offset.zero,
+              ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
+              child: child,
+            ),
+          ),
+          transitionDuration: const Duration(milliseconds: 320),
         ),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error camara: $e'), backgroundColor: _C.red),
+        SnackBar(content: Text('Error al iniciar cámara: $e'), backgroundColor: AppColors.red),
       );
     }
   }
@@ -222,14 +167,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   @override
   void dispose() {
     _fadeCtrl.dispose();
-    _pulseCtrl.dispose();
     super.dispose();
   }
 
   String get _greeting {
     final h = DateTime.now().hour;
-    if (h < 12) return 'Buenos dias';
-    if (h < 19) return 'Buenas tardes';
+    if (h >= 5 && h < 12) return 'Buenos días';
+    if (h >= 12 && h < 19) return 'Buenas tardes';
     return 'Buenas noches';
   }
 
@@ -237,117 +181,140 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    final bottomPad = MediaQuery.of(context).padding.bottom + 88.0;
-    return Scaffold(
-      backgroundColor: _C.bg,
-      body: SafeArea(
-        bottom: false,
-        child: FadeTransition(
-          opacity: _fadeAnim,
-          child: CustomScrollView(
-            physics: const BouncingScrollPhysics(),
-            slivers: [
-              SliverToBoxAdapter(
-                child: SlideTransition(
-                  position: _headerSlide,
-                  child: _header(),
-                ),
-              ),
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: _C.s16),
-                sliver: SliverToBoxAdapter(child: _statusCard()),
-              ),
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(_C.s16, _C.s16, _C.s16, 0),
-                sliver: SliverToBoxAdapter(child: _stats()),
-              ),
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(_C.s16, _C.s24, _C.s16, 0),
-                sliver: SliverToBoxAdapter(child: _detection()),
-              ),
-              SliverPadding(
-                padding: const EdgeInsets.only(top: _C.s24),
-                sliver: SliverToBoxAdapter(child: _tips()),
-              ),
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(_C.s16, _C.s24, _C.s16, 0),
-                sliver: SliverToBoxAdapter(child: _startBtn()),
-              ),
-              SliverToBoxAdapter(child: SizedBox(height: bottomPad)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+    final bottomPad = MediaQuery.of(context).padding.bottom + 92.0;
 
-  Widget _header() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(_C.s20, _C.s20, _C.s20, _C.s16),
-      child: Row(
-        children: [
-          GestureDetector(
-            onTap: () => HapticFeedback.selectionClick(),
-            child: Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: _C.brand, width: 2),
-                color: _C.surface,
-              ),
-              child: ClipOval(
-                child: _avatarUrl != null
-                    ? Image.network(
-                        _avatarUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) =>
-                            _fallback(),
-                      )
-                    : _fallback(),
+    return ValueListenableBuilder<bool>(
+      valueListenable: ThemeService.isDarkMode,
+      builder: (context, isDark, _) {
+        return Scaffold(
+          backgroundColor: AppColors.bg(isDark),
+          body: SafeArea(
+            bottom: false,
+            child: FadeTransition(
+              opacity: _fadeAnim,
+              child: RefreshIndicator(
+                color: AppColors.brand,
+                backgroundColor: AppColors.card(isDark),
+                onRefresh: _loadData,
+                child: CustomScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(
+                    parent: BouncingScrollPhysics(),
+                  ),
+                  slivers: [
+                    SliverToBoxAdapter(child: _buildHeader(isDark)),
+                    SliverPadding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      sliver: SliverList(
+                        delegate: SliverChildListDelegate([
+                          const SizedBox(height: 12),
+                          _buildHeroActionCard(isDark),
+                          const SizedBox(height: 20),
+                          _buildTelemetryStats(isDark),
+                          const SizedBox(height: 22),
+                          _buildActiveSensors(isDark),
+                          const SizedBox(height: 22),
+                          _buildSafetyTips(isDark),
+                          SizedBox(height: bottomPad),
+                        ]),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-          const SizedBox(width: _C.s12),
+        );
+      },
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // 1. Sleek Header with Theme Switcher
+  // ---------------------------------------------------------------------------
+  Widget _buildHeader(bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.brand.withValues(alpha: 0.8), width: 1.5),
+              color: AppColors.cardSecondary(isDark),
+            ),
+            child: ClipOval(
+              child: _avatarUrl != null
+                  ? Image.network(
+                      _avatarUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => _avatarFallback(),
+                    )
+                  : _avatarFallback(),
+            ),
+          ),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   _greeting,
-                  style: const TextStyle(
-                    color: _C.t2,
+                  style: TextStyle(
+                    color: AppColors.t3(isDark),
                     fontSize: 12,
+                    fontWeight: FontWeight.w500,
                     letterSpacing: 0.2,
                   ),
                 ),
-                const SizedBox(height: 1),
+                const SizedBox(height: 2),
                 Text(
                   _firstName,
-                  style: const TextStyle(
-                    color: _C.t1,
-                    fontSize: 20,
+                  style: TextStyle(
+                    color: AppColors.t1(isDark),
+                    fontSize: 19,
                     fontWeight: FontWeight.w700,
-                    letterSpacing: -0.5,
+                    letterSpacing: -0.4,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
+          // Botón selector de Modo Día / Modo Noche
           Material(
-            color: _C.surface,
-            borderRadius: BorderRadius.circular(_C.r12),
+            color: Colors.transparent,
             child: InkWell(
-              borderRadius: BorderRadius.circular(_C.r12),
-              onTap: () => HapticFeedback.selectionClick(),
-              child: const SizedBox(
-                width: 40,
-                height: 40,
-                child: Icon(
-                  Icons.notifications_none_outlined,
-                  color: _C.t2,
-                  size: 22,
+              borderRadius: BorderRadius.circular(14),
+              onTap: ThemeService.toggleTheme,
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.card(isDark),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppColors.border(isDark)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: isDark ? const Color(0x1A000000) : const Color(0x0A000000),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 250),
+                  transitionBuilder: (child, anim) => RotationTransition(
+                    turns: anim,
+                    child: FadeTransition(opacity: anim, child: child),
+                  ),
+                  child: Icon(
+                    isDark ? Icons.wb_sunny_rounded : Icons.nightlight_round,
+                    key: ValueKey<bool>(isDark),
+                    color: isDark ? const Color(0xFFF59E0B) : const Color(0xFF3B82F6),
+                    size: 20,
+                  ),
                 ),
               ),
             ),
@@ -357,417 +324,435 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _fallback() => Center(
-    child: Text(
-      _firstName.isNotEmpty ? _firstName[0].toUpperCase() : 'U',
-      style: const TextStyle(
-        color: _C.brand,
-        fontSize: 18,
-        fontWeight: FontWeight.w700,
-      ),
-    ),
-  );
-
-  Widget _statusCard() => Container(
-    padding: const EdgeInsets.all(_C.s20),
-    decoration: BoxDecoration(
-      gradient: const LinearGradient(
-        colors: [Color(0xFF06231B), Color(0xFF041510)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      ),
-      borderRadius: BorderRadius.circular(_C.r20),
-      border: Border.all(color: const Color(0x3300C472)),
-      boxShadow: const [
-        BoxShadow(
-          color: Color(0x1500C472),
-          blurRadius: 32,
-          spreadRadius: -4,
-          offset: Offset(0, 8),
-        ),
-      ],
-    ),
-    child: Row(
-      children: [
-        ScaleTransition(
-          scale: _pulseScale,
-          child: Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: _C.brandGlow,
-              border: Border.all(color: const Color(0x5900C472), width: 1.5),
-            ),
-            child: const Icon(Icons.shield_outlined, color: _C.brand, size: 26),
+  Widget _avatarFallback() => Center(
+        child: Text(
+          _firstName.isNotEmpty ? _firstName[0].toUpperCase() : 'U',
+          style: const TextStyle(
+            color: AppColors.brand,
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
           ),
         ),
-        const SizedBox(width: _C.s16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: _C.brandGlow,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Text(
-                  'SISTEMA LISTO',
-                  style: TextStyle(
-                    color: _C.brand,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.2,
+      );
+
+  // ---------------------------------------------------------------------------
+  // 2. Hero Action Launcher (Iniciar Viaje)
+  // ---------------------------------------------------------------------------
+  Widget _buildHeroActionCard(bool isDark) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.card(isDark),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: AppColors.borderLight(isDark)),
+        gradient: isDark
+            ? const LinearGradient(
+                colors: [Color(0xFF131C2A), Color(0xFF0F1521)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              )
+            : const LinearGradient(
+                colors: [Color(0xFFFFFFFF), Color(0xFFF8FAFC)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+        boxShadow: [
+          BoxShadow(
+            color: isDark ? const Color(0x1F000000) : const Color(0x0F000000),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(22),
+          onTap: _iniciarViaje,
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [AppColors.brand, AppColors.brandDim],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x4000C472),
+                        blurRadius: 16,
+                        spreadRadius: -2,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.videocam_rounded,
+                    color: Colors.white,
+                    size: 26,
                   ),
                 ),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'SafeDrive activo',
-                style: TextStyle(
-                  color: _C.t1,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.3,
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Iniciar Viaje',
+                        style: TextStyle(
+                          color: AppColors.t1(isDark),
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        'Monitoreo y detección en tiempo real',
+                        style: TextStyle(
+                          color: AppColors.t2(isDark),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: AppColors.cardSecondary(isDark),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppColors.border(isDark)),
+                  ),
+                  child: const Icon(
+                    Icons.arrow_forward_rounded,
+                    color: AppColors.brand,
+                    size: 16,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // 3. Telemetry Stats Row
+  // ---------------------------------------------------------------------------
+  Widget _buildTelemetryStats(bool isDark) {
+    final vScore = _loadingStats ? '-' : '$_score%';
+    final vTrips = _loadingStats ? '-' : '$_trips';
+    final vAlerts = _loadingStats ? '-' : '$_alerts';
+
+    return Row(
+      children: [
+        _buildStatTile(
+          label: 'Score',
+          value: vScore,
+          icon: Icons.shield_outlined,
+          color: AppColors.brand,
+          subtext: _score >= 85 ? 'Óptimo' : 'Atención',
+          isDark: isDark,
+        ),
+        const SizedBox(width: 10),
+        _buildStatTile(
+          label: 'Viajes',
+          value: vTrips,
+          icon: Icons.route_outlined,
+          color: AppColors.blue,
+          subtext: 'Completados',
+          isDark: isDark,
+        ),
+        const SizedBox(width: 10),
+        _buildStatTile(
+          label: 'Alertas',
+          value: vAlerts,
+          icon: Icons.notifications_active_outlined,
+          color: _alerts == 0 ? AppColors.cyan : AppColors.orange,
+          subtext: 'Registradas',
+          isDark: isDark,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatTile({
+    required String label,
+    required String value,
+    required IconData icon,
+    required Color color,
+    required String subtext,
+    required bool isDark,
+  }) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+        decoration: BoxDecoration(
+          color: AppColors.card(isDark),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.border(isDark)),
+          boxShadow: [
+            BoxShadow(
+              color: isDark ? const Color(0x14000000) : const Color(0x08000000),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: AppColors.t3(isDark),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Icon(icon, color: color, size: 15),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              style: TextStyle(
+                color: AppColors.t1(isDark),
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.5,
               ),
-              const SizedBox(height: 3),
-              const Text(
-                'IA de monitoreo lista para protegerte',
-                style: TextStyle(color: _C.t2, fontSize: 12),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              subtext,
+              style: TextStyle(
+                color: color.withValues(alpha: 0.9),
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // 4. Compact Active Sensors Module
+  // ---------------------------------------------------------------------------
+  Widget _buildActiveSensors(bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'SISTEMA DE SEGURIDAD',
+          style: TextStyle(
+            color: AppColors.t3(isDark),
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.1,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.card(isDark),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppColors.border(isDark)),
+            boxShadow: [
+              BoxShadow(
+                color: isDark ? const Color(0x14000000) : const Color(0x08000000),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              _buildSensorRow(
+                icon: Icons.remove_red_eye_outlined,
+                title: 'Detección EAR Ocular',
+                desc: 'Análisis de parpadeo y microsueños',
+                color: AppColors.brand,
+                isDark: isDark,
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Divider(color: AppColors.border(isDark).withValues(alpha: 0.5), height: 1),
+              ),
+              _buildSensorRow(
+                icon: Icons.face_retouching_natural_outlined,
+                title: 'Postura & Cabeceo',
+                desc: 'Ángulo Euler X/Y y cabeceo involuntario',
+                color: AppColors.blue,
+                isDark: isDark,
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Divider(color: AppColors.border(isDark).withValues(alpha: 0.5), height: 1),
+              ),
+              _buildSensorRow(
+                icon: Icons.warning_amber_rounded,
+                title: 'Alerta Sonora & Háptica',
+                desc: 'Disparo de advertencia instantánea',
+                color: AppColors.cyan,
+                isDark: isDark,
               ),
             ],
           ),
         ),
       ],
-    ),
-  );
-
-  Widget _stats() {
-    final v = _loadingStats ? '-' : null;
-    return Row(
-      children: [
-        _StatCard(
-          icon: Icons.route_outlined,
-          color: _C.blue,
-          label: 'Viajes',
-          value: v ?? '$_trips',
-        ),
-        const SizedBox(width: _C.s8),
-        _StatCard(
-          icon: Icons.warning_amber_outlined,
-          color: _C.orange,
-          label: 'Alertas',
-          value: v ?? '$_alerts',
-        ),
-        const SizedBox(width: _C.s8),
-        _StatCard(
-          icon: Icons.star_border_rounded,
-          color: _C.brand,
-          label: 'Score',
-          value: v ?? '$_score',
-        ),
-      ],
     );
   }
 
-  Widget _detection() => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      const _SectionTitle('Monitoreo en tiempo real'),
-      const SizedBox(height: _C.s12),
-      _DetCard(
-        icon: Icons.remove_red_eye_outlined,
-        color: _C.red,
-        title: 'Deteccion de somnolencia',
-        sub: 'Analiza el EAR de tus ojos en cada fotograma.',
-      ),
-      const SizedBox(height: _C.s8),
-      _DetCard(
-        icon: Icons.face_outlined,
-        color: _C.orange,
-        title: 'Inclinacion de cabeza',
-        sub: 'Detecta cabeceo por angulo Euler (headEulerAngleX).',
-      ),
-      const SizedBox(height: _C.s8),
-      _DetCard(
-        icon: Icons.visibility_off_outlined,
-        color: _C.blue,
-        title: 'Distraccion visual',
-        sub: 'Monitoreo continuo aunque uses lentes de sol.',
-      ),
-    ],
-  );
-
-  Widget _tips() => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      const Padding(
-        padding: EdgeInsets.symmetric(horizontal: _C.s16),
-        child: _SectionTitle('Tips de seguridad'),
-      ),
-      const SizedBox(height: _C.s12),
-      SizedBox(
-        height: 148,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: _C.s16),
-          physics: const BouncingScrollPhysics(),
-          itemCount: _kTips.length,
-          separatorBuilder: (context, index) => const SizedBox(width: _C.s8),
-          itemBuilder: (context, i) => _TipCard(tip: _kTips[i]),
-        ),
-      ),
-    ],
-  );
-
-  Widget _startBtn() => GestureDetector(
-    onTap: _iniciarViaje,
-    child: Container(
-      height: 62,
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [_C.brand, _C.brandDim],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(_C.r20),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x4800C472),
-            blurRadius: 28,
-            spreadRadius: -6,
-            offset: Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          const SizedBox(width: _C.s20),
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: Colors.white24,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(
-              Icons.directions_car_outlined,
-              color: Colors.white,
-              size: 18,
-            ),
-          ),
-          const SizedBox(width: _C.s12),
-          const Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Iniciar viaje',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.2,
-                  ),
-                ),
-                Text(
-                  'Calibracion facial requerida',
-                  style: TextStyle(color: Colors.white70, fontSize: 11),
-                ),
-              ],
-            ),
-          ),
-          const Icon(
-            Icons.arrow_forward_ios_rounded,
-            color: Colors.white,
-            size: 14,
-          ),
-          const SizedBox(width: _C.s20),
-        ],
-      ),
-    ),
-  );
-}
-
-class _SectionTitle extends StatelessWidget {
-  final String text;
-  const _SectionTitle(this.text);
-  @override
-  Widget build(BuildContext context) => Text(
-    text,
-    style: const TextStyle(
-      color: _C.t1,
-      fontSize: 16,
-      fontWeight: FontWeight.w700,
-      letterSpacing: -0.2,
-    ),
-  );
-}
-
-class _StatCard extends StatelessWidget {
-  final IconData icon;
-  final Color color;
-  final String label, value;
-  const _StatCard({
-    required this.icon,
-    required this.color,
-    required this.label,
-    required this.value,
-  });
-  @override
-  Widget build(BuildContext context) => Expanded(
-    child: Container(
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-      decoration: BoxDecoration(
-        color: _C.surface,
-        borderRadius: BorderRadius.circular(_C.r16),
-        border: Border.all(color: _C.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(_C.r8),
-            ),
-            child: Icon(icon, color: color, size: 16),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            value,
-            style: const TextStyle(
-              color: _C.t1,
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              letterSpacing: -0.5,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(label, style: const TextStyle(color: _C.t2, fontSize: 11)),
-        ],
-      ),
-    ),
-  );
-}
-
-class _DetCard extends StatelessWidget {
-  final IconData icon;
-  final Color color;
-  final String title, sub;
-  const _DetCard({
-    required this.icon,
-    required this.color,
-    required this.title,
-    required this.sub,
-  });
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(_C.s16),
-    decoration: BoxDecoration(
-      color: _C.surface,
-      borderRadius: BorderRadius.circular(_C.r16),
-      border: Border.all(color: _C.border),
-    ),
-    child: Row(
+  Widget _buildSensorRow({
+    required IconData icon,
+    required String title,
+    required String desc,
+    required Color color,
+    required bool isDark,
+  }) {
+    return Row(
       children: [
         Container(
-          width: 42,
-          height: 42,
+          width: 36,
+          height: 36,
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(_C.r12),
+            borderRadius: BorderRadius.circular(10),
           ),
-          child: Icon(icon, color: color, size: 20),
+          child: Icon(icon, color: color, size: 18),
         ),
-        const SizedBox(width: _C.s12),
+        const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 title,
-                style: const TextStyle(
-                  color: _C.t1,
-                  fontSize: 14,
+                style: TextStyle(
+                  color: AppColors.t1(isDark),
+                  fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(height: 3),
-              Text(sub, style: const TextStyle(color: _C.t2, fontSize: 12)),
+              const SizedBox(height: 2),
+              Text(
+                desc,
+                style: TextStyle(
+                  color: AppColors.t3(isDark),
+                  fontSize: 11,
+                ),
+              ),
             ],
           ),
         ),
-        const SizedBox(width: _C.s8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: _C.brandGlow,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: const Text(
-            'Activo',
-            style: TextStyle(
-              color: _C.brand,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
       ],
-    ),
-  );
-}
+    );
+  }
 
-class _TipCard extends StatelessWidget {
-  final _Tip tip;
-  const _TipCard({required this.tip});
-  @override
-  Widget build(BuildContext context) => Container(
-    width: 178,
-    padding: const EdgeInsets.all(_C.s16),
-    decoration: BoxDecoration(
-      color: _C.surface,
-      borderRadius: BorderRadius.circular(_C.r16),
-      border: Border.all(color: _C.border),
-    ),
-    child: Column(
+  // ---------------------------------------------------------------------------
+  // 5. Minimalist Safety Insights Carousel
+  // ---------------------------------------------------------------------------
+  Widget _buildSafetyTips(bool isDark) {
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            color: tip.color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(_C.r8),
-          ),
-          child: Icon(tip.icon, color: tip.color, size: 18),
-        ),
-        const SizedBox(height: _C.s8),
         Text(
-          tip.title,
-          style: const TextStyle(
-            color: _C.t1,
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
+          'RECOMENDACIONES DE CONDUCCIÓN',
+          style: TextStyle(
+            color: AppColors.t3(isDark),
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.1,
           ),
         ),
-        const SizedBox(height: 4),
-        Expanded(
-          child: Text(
-            tip.body,
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: _C.t2, fontSize: 11, height: 1.4),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 120,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            itemCount: _quickTips.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            itemBuilder: (context, i) {
+              final tip = _quickTips[i];
+              final icon = tip['icon'] as IconData;
+              final color = tip['color'] as Color;
+              final title = tip['title'] as String;
+              final body = tip['body'] as String;
+
+              return Container(
+                width: 230,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.card(isDark),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.border(isDark)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: isDark ? const Color(0x14000000) : const Color(0x08000000),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(icon, color: color, size: 16),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            title,
+                            style: TextStyle(
+                              color: AppColors.t1(isDark),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: Text(
+                        body,
+                        style: TextStyle(
+                          color: AppColors.t2(isDark),
+                          fontSize: 11,
+                          height: 1.35,
+                        ),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
         ),
       ],
-    ),
-  );
+    );
+  }
 }

@@ -44,9 +44,33 @@ class _LoginFormState extends State<LoginForm> {
   }
 
   Future<void> _iniciarSesion() async {
-    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    if (email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor llena todos los campos')),
+        const SnackBar(content: Text('Por favor completa todos los campos')),
+      );
+      return;
+    }
+
+    final emailRegex = RegExp(r'^[\w\.-]+@([\w-]+\.)+[\w-]{2,4}$');
+    if (!emailRegex.hasMatch(email)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Por favor ingresa un correo electrónico válido'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (password.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('La contraseña debe tener al menos 6 caracteres'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
@@ -55,10 +79,7 @@ class _LoginFormState extends State<LoginForm> {
       _isLoading = true;
     });
 
-    final error = await loginUsuario(
-      _emailController.text.trim(),
-      _passwordController.text.trim(),
-    );
+    final error = await loginUsuario(email, password);
 
     if (!mounted) return;
 

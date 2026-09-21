@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:safedrive/presentation/screens/login_screen.dart';
 import 'package:safedrive/presentation/layouts/main_layout_screen.dart';
+import 'package:safedrive/core/theme/theme_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,11 +20,27 @@ class Safedrive extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.white),
-      // En lugar de ir directo al LoginScreen, usamos un "Guadia"
-      home: const AuthGate(),
+    return ValueListenableBuilder<bool>(
+      valueListenable: ThemeService.isDarkMode,
+      builder: (context, isDark, child) {
+        return MaterialApp(
+          debugShowCheckedModeBanner: false,
+          themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
+          theme: ThemeData(
+            useMaterial3: true,
+            brightness: Brightness.light,
+            scaffoldBackgroundColor: AppColors.bg(false),
+            colorSchemeSeed: AppColors.brand,
+          ),
+          darkTheme: ThemeData(
+            useMaterial3: true,
+            brightness: Brightness.dark,
+            scaffoldBackgroundColor: AppColors.bg(true),
+            colorSchemeSeed: AppColors.brand,
+          ),
+          home: const AuthGate(),
+        );
+      },
     );
   }
 }
