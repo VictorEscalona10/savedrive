@@ -29,20 +29,20 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     {
       'icon': Icons.remove_red_eye_outlined,
       'color': AppColors.brand,
-      'title': 'Regla 20-20-20',
-      'body': 'Parpadea regularmente y mantén la vista relajada en trayectos largos.',
+      'title': 'Descanso visual 20-20-20',
+      'body': 'Parpadea con frecuencia y mira a lo lejos para relajar la vista.',
     },
     {
       'icon': Icons.local_cafe_outlined,
       'color': AppColors.orange,
       'title': 'Pausa cada 2 horas',
-      'body': 'Hacer paradas cortas restaura tus reflejos hasta en un 40%.',
+      'body': 'Hacer una pausa breve recupera tus reflejos y concentración.',
     },
     {
       'icon': Icons.air_outlined,
       'color': AppColors.cyan,
-      'title': 'Buena ventilación',
-      'body': 'El aire fresco y una temperatura adecuada previenen la somnolencia.',
+      'title': 'Ventilación en cabina',
+      'body': 'Mantén aire fresco circulando para evitar la fatiga por somnolencia.',
     },
   ];
 
@@ -51,7 +51,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     super.initState();
     _fadeCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 500),
+      duration: const Duration(milliseconds: 400),
     );
     _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOut);
     _fadeCtrl.forward();
@@ -125,7 +125,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Permiso de cámara requerido para monitoreo facial.'),
+          content: Text('Permiso de cámara requerido para iniciar el viaje.'),
           backgroundColor: AppColors.red,
         ),
       );
@@ -181,7 +181,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
-    final bottomPad = MediaQuery.of(context).padding.bottom + 92.0;
+    final bottomPad = MediaQuery.of(context).padding.bottom + 96.0;
 
     return ValueListenableBuilder<bool>(
       valueListenable: ThemeService.isDarkMode,
@@ -206,13 +206,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       sliver: SliverList(
                         delegate: SliverChildListDelegate([
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 14),
                           _buildHeroActionCard(isDark),
-                          const SizedBox(height: 20),
+                          const SizedBox(height: 24),
                           _buildTelemetryStats(isDark),
-                          const SizedBox(height: 22),
+                          const SizedBox(height: 28),
                           _buildActiveSensors(isDark),
-                          const SizedBox(height: 22),
+                          const SizedBox(height: 28),
                           _buildSafetyTips(isDark),
                           SizedBox(height: bottomPad),
                         ]),
@@ -229,19 +229,19 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   }
 
   // ---------------------------------------------------------------------------
-  // 1. Sleek Header with Theme Switcher
+  // 1. Header Nativo con Tipografía Grande y Clara
   // ---------------------------------------------------------------------------
   Widget _buildHeader(bool isDark) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
       child: Row(
         children: [
           Container(
-            width: 44,
-            height: 44,
+            width: 50,
+            height: 50,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(color: AppColors.brand.withValues(alpha: 0.8), width: 1.5),
+              border: Border.all(color: AppColors.brand, width: 2),
               color: AppColors.cardSecondary(isDark),
             ),
             child: ClipOval(
@@ -263,10 +263,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 Text(
                   _greeting,
                   style: TextStyle(
-                    color: AppColors.t3(isDark),
-                    fontSize: 12,
+                    color: AppColors.t2(isDark),
+                    fontSize: 14,
                     fontWeight: FontWeight.w500,
-                    letterSpacing: 0.2,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -274,31 +273,32 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   _firstName,
                   style: TextStyle(
                     color: AppColors.t1(isDark),
-                    fontSize: 19,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.4,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.5,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
-          // Botón selector de Modo Día / Modo Noche
+          // Botón selector de Modo Día / Noche
           Material(
             color: Colors.transparent,
             child: InkWell(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(16),
               onTap: ThemeService.toggleTheme,
               child: Container(
-                padding: const EdgeInsets.all(8),
+                width: 46,
+                height: 46,
                 decoration: BoxDecoration(
                   color: AppColors.card(isDark),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppColors.border(isDark)),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.border(isDark), width: 1.2),
                   boxShadow: [
                     BoxShadow(
-                      color: isDark ? const Color(0x1A000000) : const Color(0x0A000000),
-                      blurRadius: 8,
+                      color: isDark ? const Color(0x1F000000) : const Color(0x0A000000),
+                      blurRadius: 10,
                       offset: const Offset(0, 2),
                     ),
                   ],
@@ -313,7 +313,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                     isDark ? Icons.wb_sunny_rounded : Icons.nightlight_round,
                     key: ValueKey<bool>(isDark),
                     color: isDark ? const Color(0xFFF59E0B) : const Color(0xFF3B82F6),
-                    size: 20,
+                    size: 22,
                   ),
                 ),
               ),
@@ -329,24 +329,24 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           _firstName.isNotEmpty ? _firstName[0].toUpperCase() : 'U',
           style: const TextStyle(
             color: AppColors.brand,
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
           ),
         ),
       );
 
   // ---------------------------------------------------------------------------
-  // 2. Hero Action Launcher (Iniciar Viaje)
+  // 2. Tarjeta Principal "Iniciar Viaje" (Botón Grande y Cómodo)
   // ---------------------------------------------------------------------------
   Widget _buildHeroActionCard(bool isDark) {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.card(isDark),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: AppColors.borderLight(isDark)),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppColors.border(isDark), width: 1.2),
         gradient: isDark
             ? const LinearGradient(
-                colors: [Color(0xFF131C2A), Color(0xFF0F1521)],
+                colors: [Color(0xFF131D2E), Color(0xFF0F1622)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               )
@@ -357,8 +357,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               ),
         boxShadow: [
           BoxShadow(
-            color: isDark ? const Color(0x1F000000) : const Color(0x0F000000),
-            blurRadius: 16,
+            color: isDark ? const Color(0x25000000) : const Color(0x0E000000),
+            blurRadius: 20,
             offset: const Offset(0, 6),
           ),
         ],
@@ -366,26 +366,26 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(24),
           onTap: _iniciarViaje,
           child: Padding(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
             child: Row(
               children: [
                 Container(
-                  width: 52,
-                  height: 52,
+                  width: 58,
+                  height: 58,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: [AppColors.brand, AppColors.brandDim],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(18),
                     boxShadow: const [
                       BoxShadow(
                         color: Color(0x4000C472),
-                        blurRadius: 16,
+                        blurRadius: 18,
                         spreadRadius: -2,
                         offset: Offset(0, 4),
                       ),
@@ -394,10 +394,10 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   child: const Icon(
                     Icons.videocam_rounded,
                     color: Colors.white,
-                    size: 26,
+                    size: 30,
                   ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 18),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -407,26 +407,27 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                         'Iniciar Viaje',
                         style: TextStyle(
                           color: AppColors.t1(isDark),
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -0.3,
+                          fontSize: 19,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.4,
                         ),
                       ),
-                      const SizedBox(height: 3),
+                      const SizedBox(height: 4),
                       Text(
-                        'Monitoreo y detección en tiempo real',
+                        'Monitoreo activo con cámara frontal',
                         style: TextStyle(
                           color: AppColors.t2(isDark),
-                          fontSize: 12,
+                          fontSize: 14,
                           fontWeight: FontWeight.w400,
                         ),
                       ),
                     ],
                   ),
                 ),
+                const SizedBox(width: 8),
                 Container(
-                  width: 34,
-                  height: 34,
+                  width: 38,
+                  height: 38,
                   decoration: BoxDecoration(
                     color: AppColors.cardSecondary(isDark),
                     shape: BoxShape.circle,
@@ -435,7 +436,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   child: const Icon(
                     Icons.arrow_forward_rounded,
                     color: AppColors.brand,
-                    size: 16,
+                    size: 18,
                   ),
                 ),
               ],
@@ -447,7 +448,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   }
 
   // ---------------------------------------------------------------------------
-  // 3. Telemetry Stats Row
+  // 3. Fila de Métricas con Números Grandes y Claros
   // ---------------------------------------------------------------------------
   Widget _buildTelemetryStats(bool isDark) {
     final vScore = _loadingStats ? '-' : '$_score%';
@@ -457,29 +458,29 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     return Row(
       children: [
         _buildStatTile(
-          label: 'Score',
+          label: 'Puntaje',
           value: vScore,
-          icon: Icons.shield_outlined,
+          icon: Icons.shield_rounded,
           color: AppColors.brand,
-          subtext: _score >= 85 ? 'Óptimo' : 'Atención',
+          subtext: _score >= 85 ? 'Excelente' : 'Atención',
           isDark: isDark,
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 12),
         _buildStatTile(
           label: 'Viajes',
           value: vTrips,
-          icon: Icons.route_outlined,
+          icon: Icons.route_rounded,
           color: AppColors.blue,
-          subtext: 'Completados',
+          subtext: 'Totales',
           isDark: isDark,
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 12),
         _buildStatTile(
           label: 'Alertas',
           value: vAlerts,
-          icon: Icons.notifications_active_outlined,
+          icon: Icons.notifications_active_rounded,
           color: _alerts == 0 ? AppColors.cyan : AppColors.orange,
-          subtext: 'Registradas',
+          subtext: 'Detectadas',
           isDark: isDark,
         ),
       ],
@@ -496,15 +497,15 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   }) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 14),
         decoration: BoxDecoration(
           color: AppColors.card(isDark),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.border(isDark)),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppColors.border(isDark), width: 1.2),
           boxShadow: [
             BoxShadow(
-              color: isDark ? const Color(0x14000000) : const Color(0x08000000),
-              blurRadius: 8,
+              color: isDark ? const Color(0x18000000) : const Color(0x08000000),
+              blurRadius: 10,
               offset: const Offset(0, 2),
             ),
           ],
@@ -518,31 +519,31 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 Text(
                   label,
                   style: TextStyle(
-                    color: AppColors.t3(isDark),
-                    fontSize: 11,
+                    color: AppColors.t2(isDark),
+                    fontSize: 13,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                Icon(icon, color: color, size: 15),
+                Icon(icon, color: color, size: 18),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             Text(
               value,
               style: TextStyle(
                 color: AppColors.t1(isDark),
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.5,
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.6,
               ),
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: 4),
             Text(
               subtext,
               style: TextStyle(
-                color: color.withValues(alpha: 0.9),
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
+                color: color,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],
@@ -552,32 +553,32 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   }
 
   // ---------------------------------------------------------------------------
-  // 4. Compact Active Sensors Module
+  // 4. Módulo de Seguridad con Tamaño y Espaciado Cómodo
   // ---------------------------------------------------------------------------
   Widget _buildActiveSensors(bool isDark) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'SISTEMA DE SEGURIDAD',
+          'Monitoreo y Sensores',
           style: TextStyle(
-            color: AppColors.t3(isDark),
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 1.1,
+            color: AppColors.t1(isDark),
+            fontSize: 19,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.4,
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
         Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
             color: AppColors.card(isDark),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: AppColors.border(isDark)),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: AppColors.border(isDark), width: 1.2),
             boxShadow: [
               BoxShadow(
-                color: isDark ? const Color(0x14000000) : const Color(0x08000000),
-                blurRadius: 8,
+                color: isDark ? const Color(0x18000000) : const Color(0x08000000),
+                blurRadius: 10,
                 offset: const Offset(0, 2),
               ),
             ],
@@ -585,31 +586,31 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           child: Column(
             children: [
               _buildSensorRow(
-                icon: Icons.remove_red_eye_outlined,
-                title: 'Detección EAR Ocular',
-                desc: 'Análisis de parpadeo y microsueños',
+                icon: Icons.remove_red_eye_rounded,
+                title: 'Detección Ocular',
+                desc: 'Análisis de parpadeo y prevención de microsueños',
                 color: AppColors.brand,
                 isDark: isDark,
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Divider(color: AppColors.border(isDark).withValues(alpha: 0.5), height: 1),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                child: Divider(color: AppColors.border(isDark).withValues(alpha: 0.6), height: 1),
               ),
               _buildSensorRow(
-                icon: Icons.face_retouching_natural_outlined,
-                title: 'Postura & Cabeceo',
-                desc: 'Ángulo Euler X/Y y cabeceo involuntario',
+                icon: Icons.face_retouching_natural_rounded,
+                title: 'Postura y Cabeceo',
+                desc: 'Alerta por inclinación y pérdida de vista al frente',
                 color: AppColors.blue,
                 isDark: isDark,
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Divider(color: AppColors.border(isDark).withValues(alpha: 0.5), height: 1),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                child: Divider(color: AppColors.border(isDark).withValues(alpha: 0.6), height: 1),
               ),
               _buildSensorRow(
-                icon: Icons.warning_amber_rounded,
-                title: 'Alerta Sonora & Háptica',
-                desc: 'Disparo de advertencia instantánea',
+                icon: Icons.notifications_active_rounded,
+                title: 'Alertas Sonoras y Vibración',
+                desc: 'Aviso instantáneo al detectar somnolencia o distracción',
                 color: AppColors.cyan,
                 isDark: isDark,
               ),
@@ -630,15 +631,15 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     return Row(
       children: [
         Container(
-          width: 36,
-          height: 36,
+          width: 44,
+          height: 44,
           decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(10),
+            color: color.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(14),
           ),
-          child: Icon(icon, color: color, size: 18),
+          child: Icon(icon, color: color, size: 22),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 14),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -647,16 +648,18 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 title,
                 style: TextStyle(
                   color: AppColors.t1(isDark),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.2,
                 ),
               ),
-              const SizedBox(height: 2),
+              const SizedBox(height: 3),
               Text(
                 desc,
                 style: TextStyle(
-                  color: AppColors.t3(isDark),
-                  fontSize: 11,
+                  color: AppColors.t2(isDark),
+                  fontSize: 13,
+                  height: 1.3,
                 ),
               ),
             ],
@@ -667,29 +670,29 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   }
 
   // ---------------------------------------------------------------------------
-  // 5. Minimalist Safety Insights Carousel
+  // 5. Consejos de Seguridad Móviles
   // ---------------------------------------------------------------------------
   Widget _buildSafetyTips(bool isDark) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'RECOMENDACIONES DE CONDUCCIÓN',
+          'Consejos de Conducción',
           style: TextStyle(
-            color: AppColors.t3(isDark),
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 1.1,
+            color: AppColors.t1(isDark),
+            fontSize: 19,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.4,
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
         SizedBox(
-          height: 120,
+          height: 140,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
             itemCount: _quickTips.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
             itemBuilder: (context, i) {
               final tip = _quickTips[i];
               final icon = tip['icon'] as IconData;
@@ -698,16 +701,16 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               final body = tip['body'] as String;
 
               return Container(
-                width: 230,
-                padding: const EdgeInsets.all(14),
+                width: 250,
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: AppColors.card(isDark),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.border(isDark)),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppColors.border(isDark), width: 1.2),
                   boxShadow: [
                     BoxShadow(
-                      color: isDark ? const Color(0x14000000) : const Color(0x08000000),
-                      blurRadius: 8,
+                      color: isDark ? const Color(0x18000000) : const Color(0x08000000),
+                      blurRadius: 10,
                       offset: const Offset(0, 2),
                     ),
                   ],
@@ -717,15 +720,23 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   children: [
                     Row(
                       children: [
-                        Icon(icon, color: color, size: 16),
-                        const SizedBox(width: 8),
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: color.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(icon, color: color, size: 18),
+                        ),
+                        const SizedBox(width: 10),
                         Expanded(
                           child: Text(
                             title,
                             style: TextStyle(
                               color: AppColors.t1(isDark),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -733,13 +744,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 10),
                     Expanded(
                       child: Text(
                         body,
                         style: TextStyle(
                           color: AppColors.t2(isDark),
-                          fontSize: 11,
+                          fontSize: 13,
                           height: 1.35,
                         ),
                         maxLines: 3,

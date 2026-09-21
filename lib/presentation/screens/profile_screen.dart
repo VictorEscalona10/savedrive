@@ -7,7 +7,6 @@ import 'package:safedrive/core/theme/theme_service.dart';
 //  HELPERS DE SANITIZACIÓN & VALIDACIÓN
 // =============================================================================
 abstract final class _InputSanitizer {
-  // Limpia y sanitiza nombres de personas (permite letras, acentos, espacios y guiones)
   static String sanitizeName(String input) {
     var cleaned = input.trim();
     cleaned = cleaned.replaceAll(RegExp(r'[<>"/\\;%()={}\$\^\*\[\]]'), '');
@@ -18,7 +17,6 @@ abstract final class _InputSanitizer {
     return cleaned;
   }
 
-  // Sanitiza teléfonos (conserva solo dígitos, +, -, espacios y paréntesis)
   static String sanitizePhone(String input) {
     var cleaned = input.trim();
     cleaned = cleaned.replaceAll(RegExp(r'[^0-9+\-\s()]'), '');
@@ -29,7 +27,6 @@ abstract final class _InputSanitizer {
     return cleaned;
   }
 
-  // Sanitiza notas médicas y observaciones clínicas
   static String sanitizeNotes(String input) {
     var cleaned = input.trim();
     cleaned = cleaned.replaceAll(RegExp(r'[<>"/\\;{}\$\^]'), '');
@@ -181,7 +178,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _save() async {
     HapticFeedback.mediumImpact();
 
-    // ─── SANITIZACIÓN & COMPROBACIONES DE INPUTS ───
     final sanitizedName = _InputSanitizer.sanitizeName(_nameCtrl.text);
     final sanitizedNotes = _InputSanitizer.sanitizeNotes(_notesCtrl.text);
     final sanitizedContactName = _InputSanitizer.sanitizeName(_contactNameCtrl.text);
@@ -194,7 +190,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _contactPhoneCtrl.text = sanitizedContactPhone;
 
     if (sanitizedName.isNotEmpty && !_InputSanitizer.isValidName(sanitizedName)) {
-      _snack('El nombre del conductor debe tener al menos 2 caracteres válidos.', isError: true);
+      _snack('El nombre debe tener al menos 2 caracteres válidos.', isError: true);
       return;
     }
 
@@ -203,11 +199,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return;
     }
     if (sanitizedContactPhone.isNotEmpty && sanitizedContactName.isEmpty) {
-      _snack('Por favor ingresa el nombre de la persona de contacto de emergencia.', isError: true);
+      _snack('Por favor ingresa el nombre de tu contacto de emergencia.', isError: true);
       return;
     }
     if (sanitizedContactPhone.isNotEmpty && !_InputSanitizer.isValidPhoneDigits(sanitizedContactPhone)) {
-      _snack('El teléfono de emergencia debe contener al menos 7 dígitos numéricos.', isError: true);
+      _snack('El teléfono debe tener entre 7 y 15 dígitos.', isError: true);
       return;
     }
 
@@ -216,7 +212,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       final user = _supa.auth.currentUser;
       if (user == null) {
-        throw 'No hay una sesión activa en Supabase. Inicia sesión nuevamente.';
+        throw 'No hay una sesión activa. Inicia sesión nuevamente.';
       }
 
       final uid = user.id;
@@ -263,17 +259,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
         }
       }
 
-      _snack('¡Perfil médico y contacto guardados exitosamente!');
+      _snack('¡Datos de perfil guardados correctamente!');
     } catch (e) {
       debugPrint('Error al guardar datos de perfil: $e');
       final errStr = e.toString();
       if (errStr.contains('violates row-level security')) {
         _snack(
-          'Error RLS: Debes habilitar políticas INSERT/UPDATE en Supabase.',
+          'Error RLS: Habilita políticas INSERT/UPDATE en Supabase.',
           isError: true,
         );
       } else {
-        _snack('Error al guardar en Supabase: $e', isError: true);
+        _snack('Error al guardar en base de datos: $e', isError: true);
       }
     } finally {
       if (mounted) {
@@ -313,15 +309,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ? Icons.error_outline_rounded
                   : Icons.check_circle_outline_rounded,
               color: Colors.white,
-              size: 20,
+              size: 22,
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 12),
             Expanded(
               child: Text(
                 msg,
                 style: const TextStyle(
                   fontWeight: FontWeight.w600,
-                  fontSize: 13,
+                  fontSize: 14,
                   color: Colors.white,
                 ),
               ),
@@ -331,9 +327,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         backgroundColor: isError ? AppColors.red : AppColors.brand,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
         ),
-        margin: const EdgeInsets.all(16),
+        margin: const EdgeInsets.all(18),
         duration: const Duration(seconds: 4),
       ),
     );
@@ -351,7 +347,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 'Conductor';
     final email = user?.email ?? '';
     final avatar = meta?['avatar_url'] as String?;
-    final bottomPad = MediaQuery.of(context).padding.bottom + 88.0;
+    final bottomPad = MediaQuery.of(context).padding.bottom + 96.0;
 
     return ValueListenableBuilder<bool>(
       valueListenable: ThemeService.isDarkMode,
@@ -364,7 +360,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ? const Center(
                     child: CircularProgressIndicator(
                       color: AppColors.brand,
-                      strokeWidth: 2,
+                      strokeWidth: 2.5,
                     ),
                   )
                 : CustomScrollView(
@@ -379,29 +375,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           isDark: isDark,
                         ),
                       ),
-                      // Sección 1: Información Personal del Conductor
+                      // Sección 1: Información Personal
                       SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+                        padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
                         sliver: SliverToBoxAdapter(child: _driverInfoSection(isDark)),
                       ),
-                      // Sección 2: Ficha Médica y Tipo de Sangre
+                      // Sección 2: Ficha Médica
                       SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
                         sliver: SliverToBoxAdapter(child: _medicalSection(isDark)),
                       ),
                       // Sección 3: Contacto de Emergencia
                       SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
                         sliver: SliverToBoxAdapter(child: _emergencySection(isDark)),
                       ),
                       // Botón Guardar Cambios
                       SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+                        padding: const EdgeInsets.fromLTRB(20, 28, 20, 0),
                         sliver: SliverToBoxAdapter(child: _saveBtn(isDark)),
                       ),
                       // Botón Cerrar Sesión
                       SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                        padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
                         sliver: SliverToBoxAdapter(child: _logoutBtn(isDark)),
                       ),
                       SliverToBoxAdapter(child: SizedBox(height: bottomPad)),
@@ -422,25 +418,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
         title: 'Información del Conductor',
         isDark: isDark,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
           child: Row(
             children: [
               _IconBox(icon: Icons.badge_outlined, color: AppColors.cyan),
-              const SizedBox(width: 12),
+              const SizedBox(width: 14),
               Expanded(
                 child: TextField(
                   controller: _nameCtrl,
                   maxLength: 70,
                   style: TextStyle(
                     color: AppColors.t1(isDark),
-                    fontSize: 15,
+                    fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
                   decoration: InputDecoration(
                     labelText: 'Nombre completo',
-                    labelStyle: TextStyle(color: AppColors.t2(isDark), fontSize: 13),
+                    labelStyle: TextStyle(color: AppColors.t2(isDark), fontSize: 14),
                     hintText: 'Tu nombre y apellido',
-                    hintStyle: TextStyle(color: AppColors.t3(isDark), fontSize: 13),
+                    hintStyle: TextStyle(color: AppColors.t3(isDark), fontSize: 14),
                     border: InputBorder.none,
                     enabledBorder: InputBorder.none,
                     focusedBorder: InputBorder.none,
@@ -466,26 +462,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
           children: [
             // Selector de Tipo de Sangre
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              padding: const EdgeInsets.fromLTRB(18, 14, 18, 10),
               child: Row(
                 children: [
                   _IconBox(icon: Icons.bloodtype_outlined, color: AppColors.red),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: DropdownButtonFormField<String>(
                       initialValue: _bloodType,
                       dropdownColor: AppColors.card(isDark),
                       style: TextStyle(
                         color: AppColors.t1(isDark),
-                        fontSize: 15,
+                        fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
                       iconEnabledColor: AppColors.t2(isDark),
                       decoration: InputDecoration(
                         labelText: 'Tipo de Sangre',
-                        labelStyle: TextStyle(color: AppColors.t2(isDark), fontSize: 13),
+                        labelStyle: TextStyle(color: AppColors.t2(isDark), fontSize: 14),
                         hintText: 'Selecciona tu grupo sanguíneo',
-                        hintStyle: TextStyle(color: AppColors.t3(isDark), fontSize: 13),
+                        hintStyle: TextStyle(color: AppColors.t3(isDark), fontSize: 14),
                         border: InputBorder.none,
                         enabledBorder: InputBorder.none,
                         focusedBorder: InputBorder.none,
@@ -498,22 +494,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               child: Row(
                                 children: [
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                                     decoration: BoxDecoration(
                                       color: const Color(0x20EF4444),
-                                      borderRadius: BorderRadius.circular(6),
+                                      borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: Text(
                                       t,
                                       style: const TextStyle(
                                         color: AppColors.red,
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: 13,
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 14,
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
-                                  Text('Grupo $t', style: TextStyle(color: AppColors.t1(isDark))),
+                                  const SizedBox(width: 10),
+                                  Text('Grupo $t', style: TextStyle(color: AppColors.t1(isDark), fontSize: 15)),
                                 ],
                               ),
                             ),
@@ -531,7 +527,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _SDivider(isDark: isDark),
             // Notas Médicas / Alergias
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -539,7 +535,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     padding: const EdgeInsets.only(top: 4.0),
                     child: _IconBox(icon: Icons.note_alt_outlined, color: AppColors.orange),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: TextField(
                       controller: _notesCtrl,
@@ -547,18 +543,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       maxLength: 500,
                       style: TextStyle(
                         color: AppColors.t1(isDark),
-                        fontSize: 14,
+                        fontSize: 15,
                         height: 1.4,
                       ),
                       decoration: InputDecoration(
-                        labelText: 'Condiciones médicas, alergias o fármacos',
-                        labelStyle: TextStyle(color: AppColors.t2(isDark), fontSize: 13),
+                        labelText: 'Condiciones médicas o alergias',
+                        labelStyle: TextStyle(color: AppColors.t2(isDark), fontSize: 14),
                         hintText: 'Ej. Alérgico a penicilina, hipertenso, uso de lentes...',
-                        hintStyle: TextStyle(color: AppColors.t3(isDark), fontSize: 12),
+                        hintStyle: TextStyle(color: AppColors.t3(isDark), fontSize: 14),
                         border: InputBorder.none,
                         enabledBorder: InputBorder.none,
                         focusedBorder: InputBorder.none,
-                        counterStyle: TextStyle(color: AppColors.t3(isDark), fontSize: 11),
+                        counterStyle: TextStyle(color: AppColors.t3(isDark), fontSize: 12),
                         isDense: true,
                       ),
                     ),
@@ -582,25 +578,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
           children: [
             // Nombre del contacto
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              padding: const EdgeInsets.fromLTRB(18, 14, 18, 10),
               child: Row(
                 children: [
                   _IconBox(icon: Icons.person_add_alt_1_outlined, color: AppColors.brand),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: TextField(
                       controller: _contactNameCtrl,
                       maxLength: 70,
                       style: TextStyle(
                         color: AppColors.t1(isDark),
-                        fontSize: 15,
+                        fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
                       decoration: InputDecoration(
                         labelText: 'Nombre del Contacto',
-                        labelStyle: TextStyle(color: AppColors.t2(isDark), fontSize: 13),
+                        labelStyle: TextStyle(color: AppColors.t2(isDark), fontSize: 14),
                         hintText: 'Ej. María Pérez (Madre)',
-                        hintStyle: TextStyle(color: AppColors.t3(isDark), fontSize: 13),
+                        hintStyle: TextStyle(color: AppColors.t3(isDark), fontSize: 14),
                         border: InputBorder.none,
                         enabledBorder: InputBorder.none,
                         focusedBorder: InputBorder.none,
@@ -615,11 +611,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _SDivider(isDark: isDark),
             // Teléfono del contacto
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              padding: const EdgeInsets.fromLTRB(18, 14, 18, 10),
               child: Row(
                 children: [
                   _IconBox(icon: Icons.phone_forwarded_outlined, color: AppColors.brand),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: TextField(
                       controller: _contactPhoneCtrl,
@@ -627,14 +623,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       maxLength: 25,
                       style: TextStyle(
                         color: AppColors.t1(isDark),
-                        fontSize: 15,
+                        fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
                       decoration: InputDecoration(
                         labelText: 'Número de Teléfono',
-                        labelStyle: TextStyle(color: AppColors.t2(isDark), fontSize: 13),
+                        labelStyle: TextStyle(color: AppColors.t2(isDark), fontSize: 14),
                         hintText: '+1 234 567 8900',
-                        hintStyle: TextStyle(color: AppColors.t3(isDark), fontSize: 13),
+                        hintStyle: TextStyle(color: AppColors.t3(isDark), fontSize: 14),
                         border: InputBorder.none,
                         enabledBorder: InputBorder.none,
                         focusedBorder: InputBorder.none,
@@ -649,11 +645,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _SDivider(isDark: isDark),
             // Parentesco
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+              padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
               child: Row(
                 children: [
                   _IconBox(icon: Icons.family_restroom_outlined, color: AppColors.brand),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: DropdownButtonFormField<String>(
                       value: _relationships.contains(_relationshipCtrl.text)
@@ -662,13 +658,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       dropdownColor: AppColors.card(isDark),
                       style: TextStyle(
                         color: AppColors.t1(isDark),
-                        fontSize: 15,
+                        fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
                       iconEnabledColor: AppColors.t2(isDark),
                       decoration: InputDecoration(
                         labelText: 'Parentesco / Relación',
-                        labelStyle: TextStyle(color: AppColors.t2(isDark), fontSize: 13),
+                        labelStyle: TextStyle(color: AppColors.t2(isDark), fontSize: 14),
                         border: InputBorder.none,
                         enabledBorder: InputBorder.none,
                         focusedBorder: InputBorder.none,
@@ -698,7 +694,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _saveBtn(bool isDark) => GestureDetector(
         onTap: _isSaving ? null : _save,
         child: Container(
-          height: 56,
+          height: 58,
           decoration: BoxDecoration(
             gradient: _isSaving
                 ? null
@@ -708,13 +704,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     end: Alignment.bottomRight,
                   ),
             color: _isSaving ? AppColors.card(isDark) : null,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(22),
             border: _isSaving ? Border.all(color: AppColors.border(isDark)) : null,
             boxShadow: _isSaving
                 ? null
                 : [
                     BoxShadow(
-                      color: AppColors.brand.withValues(alpha: 0.3),
+                      color: AppColors.brand.withValues(alpha: 0.35),
                       blurRadius: 24,
                       spreadRadius: -4,
                       offset: const Offset(0, 8),
@@ -727,19 +723,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const SizedBox(
-                        width: 18,
-                        height: 18,
+                        width: 20,
+                        height: 20,
                         child: CircularProgressIndicator(
                           color: AppColors.brand,
-                          strokeWidth: 2,
+                          strokeWidth: 2.5,
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 12),
                       Text(
                         'Guardando en Supabase...',
                         style: TextStyle(
                           color: AppColors.t2(isDark),
-                          fontSize: 14,
+                          fontSize: 15,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -748,15 +744,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 : const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.cloud_done_rounded, color: Colors.white, size: 20),
-                      SizedBox(width: 8),
+                      Icon(Icons.cloud_done_rounded, color: Colors.white, size: 22),
+                      SizedBox(width: 10),
                       Text(
                         'Guardar Datos Médicos y Contacto',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -0.1,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.2,
                         ),
                       ),
                     ],
@@ -771,24 +767,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _logoutBtn(bool isDark) => GestureDetector(
         onTap: _logout,
         child: Container(
-          height: 54,
+          height: 56,
           decoration: BoxDecoration(
             color: AppColors.card(isDark),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppColors.red.withValues(alpha: 0.3)),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: AppColors.red.withValues(alpha: 0.35), width: 1.2),
           ),
           child: const Center(
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.logout_rounded, color: AppColors.red, size: 18),
-                SizedBox(width: 8),
+                Icon(Icons.logout_rounded, color: AppColors.red, size: 20),
+                SizedBox(width: 10),
                 Text(
                   'Cerrar sesión segura',
                   style: TextStyle(
                     color: AppColors.red,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ],
@@ -820,13 +816,14 @@ class _ProfileHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final firstName = name.split(' ').first;
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 20, 16, 0),
-      padding: const EdgeInsets.all(20),
+      margin: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+      padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
         color: AppColors.card(isDark),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(
           color: isDark ? const Color(0x3310B981) : const Color(0x3310B981),
+          width: 1.2,
         ),
         boxShadow: [
           BoxShadow(
@@ -840,8 +837,8 @@ class _ProfileHeader extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 64,
-            height: 64,
+            width: 68,
+            height: 68,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(color: AppColors.brand, width: 2.5),
@@ -857,7 +854,7 @@ class _ProfileHeader extends StatelessWidget {
                   : _fallback(firstName),
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 18),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -866,22 +863,22 @@ class _ProfileHeader extends StatelessWidget {
                   name,
                   style: TextStyle(
                     color: AppColors.t1(isDark),
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.3,
+                    fontSize: 21,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.4,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 4),
                 Text(
                   email,
-                  style: TextStyle(color: AppColors.t2(isDark), fontSize: 12),
+                  style: TextStyle(color: AppColors.t2(isDark), fontSize: 13),
                   overflow: TextOverflow.ellipsis,
                 ),
                 if (bloodType != null) ...[
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 10),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: const Color(0x25EF4444),
                       borderRadius: BorderRadius.circular(20),
@@ -890,14 +887,14 @@ class _ProfileHeader extends StatelessWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.bloodtype, color: AppColors.red, size: 12),
-                        const SizedBox(width: 4),
+                        const Icon(Icons.bloodtype, color: AppColors.red, size: 14),
+                        const SizedBox(width: 6),
                         Text(
                           'Tipo $bloodType',
                           style: const TextStyle(
                             color: AppColors.red,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
                           ),
                         ),
                       ],
@@ -917,8 +914,8 @@ class _ProfileHeader extends StatelessWidget {
           first.isNotEmpty ? first[0].toUpperCase() : 'U',
           style: const TextStyle(
             color: AppColors.brand,
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
+            fontSize: 24,
+            fontWeight: FontWeight.w800,
           ),
         ),
       );
@@ -947,36 +944,36 @@ class _Section extends StatelessWidget {
         Row(
           children: [
             Container(
-              width: 28,
-              height: 28,
+              width: 32,
+              height: 32,
               decoration: BoxDecoration(
                 color: iconColor.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(icon, color: iconColor, size: 14),
+              child: Icon(icon, color: iconColor, size: 17),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 10),
             Text(
               title,
               style: TextStyle(
                 color: AppColors.t1(isDark),
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.1,
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.3,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
         Container(
           decoration: BoxDecoration(
             color: AppColors.card(isDark),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppColors.border(isDark)),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: AppColors.border(isDark), width: 1.2),
             boxShadow: [
               BoxShadow(
-                color: isDark ? const Color(0x14000000) : const Color(0x08000000),
-                blurRadius: 8,
+                color: isDark ? const Color(0x18000000) : const Color(0x08000000),
+                blurRadius: 10,
                 offset: const Offset(0, 2),
               ),
             ],
@@ -996,13 +993,13 @@ class _IconBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        width: 34,
-        height: 34,
+        width: 38,
+        height: 38,
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
         ),
-        child: Icon(icon, color: color, size: 17),
+        child: Icon(icon, color: color, size: 19),
       );
 }
 
@@ -1014,9 +1011,9 @@ class _SDivider extends StatelessWidget {
   Widget build(BuildContext context) => Divider(
         height: 1,
         thickness: 1,
-        color: AppColors.border(isDark),
-        indent: 16,
-        endIndent: 16,
+        color: AppColors.border(isDark).withValues(alpha: 0.6),
+        indent: 18,
+        endIndent: 18,
       );
 }
 
@@ -1035,15 +1032,15 @@ class _LogoutDialog extends StatelessWidget {
     return AlertDialog(
       backgroundColor: AppColors.card(isDark),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         side: BorderSide(color: AppColors.border(isDark)),
       ),
       title: Text(
         'Cerrar sesión',
         style: TextStyle(
           color: AppColors.t1(isDark),
-          fontWeight: FontWeight.w700,
-          fontSize: 17,
+          fontWeight: FontWeight.w800,
+          fontSize: 18,
         ),
       ),
       content: Text(
@@ -1055,14 +1052,14 @@ class _LogoutDialog extends StatelessWidget {
           onPressed: onCancel,
           child: Text(
             'Cancelar',
-            style: TextStyle(color: AppColors.t2(isDark), fontWeight: FontWeight.w500),
+            style: TextStyle(color: AppColors.t2(isDark), fontWeight: FontWeight.w600, fontSize: 15),
           ),
         ),
         TextButton(
           onPressed: onConfirm,
           child: const Text(
             'Cerrar sesión',
-            style: TextStyle(color: AppColors.red, fontWeight: FontWeight.w600),
+            style: TextStyle(color: AppColors.red, fontWeight: FontWeight.w700, fontSize: 15),
           ),
         ),
       ],
