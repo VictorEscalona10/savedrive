@@ -26,6 +26,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>SafeDrive requiere acceso a tu ubicación para calcular tu velocidad en tiempo real y mostrar tu posición de conducción.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>SafeDrive necesita acceso a la cámara frontal para monitorear señales de fatiga y distracción mientras conduces.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -47,7 +51,7 @@
 			</array>
 		</dict>
 	</dict>
-	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<key>UIApplicationIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>

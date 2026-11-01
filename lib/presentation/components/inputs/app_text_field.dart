@@ -9,6 +9,7 @@ class AppTextField extends StatelessWidget {
   final Widget? suffixIcon;
   final bool obscureText;
   final TextInputType keyboardType;
+  final TextCapitalization textCapitalization;
   final int maxLines;
   final int? maxLength;
   final bool isDense;
@@ -23,6 +24,7 @@ class AppTextField extends StatelessWidget {
     this.suffixIcon,
     this.obscureText = false,
     this.keyboardType = TextInputType.text,
+    this.textCapitalization = TextCapitalization.none,
     this.maxLines = 1,
     this.maxLength,
     this.isDense = true,
@@ -38,6 +40,7 @@ class AppTextField extends StatelessWidget {
           controller: controller,
           obscureText: obscureText,
           keyboardType: keyboardType,
+          textCapitalization: textCapitalization,
           maxLines: maxLines,
           maxLength: maxLength,
           onChanged: onChanged,
@@ -58,8 +61,8 @@ class AppTextField extends StatelessWidget {
               fontSize: 14,
             ),
             prefixIcon: prefixIcon != null
-                ? Icon(prefixIcon, color: AppColors.brand, size: 20)
-                : null,
+              ? Icon(prefixIcon, color: AppColors.brand, size: 20)
+              : null,
             suffixIcon: suffixIcon,
             border: InputBorder.none,
             enabledBorder: InputBorder.none,

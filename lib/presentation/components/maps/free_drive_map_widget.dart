@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:safedrive/core/constants/map_config.dart';
@@ -30,6 +31,7 @@ class FreeDriveMapWidget extends StatefulWidget {
 
 class _FreeDriveMapWidgetState extends State<FreeDriveMapWidget> {
   late final MapController _mapController;
+  bool _isFollowingUser = true;
 
   // Filtro de matriz de color para transformar OpenStreetMap en Dark Mode Obsidian
   static const ColorFilter _darkColorFilter = ColorFilter.matrix(<double>[
@@ -49,14 +51,31 @@ class _FreeDriveMapWidgetState extends State<FreeDriveMapWidget> {
   void didUpdateWidget(covariant FreeDriveMapWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.currentPosition != widget.currentPosition) {
-      _mapController.move(widget.currentPosition, _mapController.camera.zoom);
+      // Si la ubicación cambió desde la posición por defecto a una posición real,
+      // forzar recentrado automático la primera vez
+      final wasDefault = oldWidget.currentPosition == MapConfig.defaultLocation;
+      final isNowReal = widget.currentPosition != MapConfig.defaultLocation;
+
+      if (wasDefault && isNowReal) {
+        _isFollowingUser = true;
+      }
+
+      if (_isFollowingUser) {
+        _mapController.move(widget.currentPosition, _mapController.camera.zoom);
+      }
     }
   }
 
   void _recenter() {
+    HapticFeedback.selectionClick();
+    setState(() => _isFollowingUser = true);
     _mapController.move(widget.currentPosition, MapConfig.defaultZoom);
     widget.onRecenter?.call();
   }
+
+  bool get _isDefaultLocation =>
+      widget.currentPosition.latitude == MapConfig.defaultLocation.latitude &&
+      widget.currentPosition.longitude == MapConfig.defaultLocation.longitude;
 
   @override
   Widget build(BuildContext context) {
@@ -77,6 +96,13 @@ class _FreeDriveMapWidgetState extends State<FreeDriveMapWidget> {
                         ? InteractiveFlag.all
                         : InteractiveFlag.none,
                   ),
+                  onPositionChanged: (camera, hasGesture) {
+                    // Si el usuario arrastró o hizo zoom manualmente en el mapa,
+                    // pausamos el auto-seguimiento para permitirle explorar libremente
+                    if (hasGesture && _isFollowingUser) {
+                      setState(() => _isFollowingUser = false);
+                    }
+                  },
                 ),
                 children: [
                   TileLayer(
@@ -104,6 +130,7 @@ class _FreeDriveMapWidgetState extends State<FreeDriveMapWidget> {
                           child: Stack(
                             alignment: Alignment.center,
                             children: [
+                              // Halo pulsante de radio
                               Container(
                                 width: 44,
                                 height: 44,
@@ -112,9 +139,10 @@ class _FreeDriveMapWidgetState extends State<FreeDriveMapWidget> {
                                   color: AppColors.brand.withValues(alpha: 0.25),
                                 ),
                               ),
+                              // Punto de posición con aguja de rumbo
                               Container(
-                                width: 26,
-                                height: 26,
+                                width: 28,
+                                height: 28,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   color: AppColors.brand,
@@ -133,7 +161,7 @@ class _FreeDriveMapWidgetState extends State<FreeDriveMapWidget> {
                                 child: const Icon(
                                   Icons.navigation_rounded,
                                   color: Colors.white,
-                                  size: 14,
+                                  size: 16,
                                 ),
                               ),
                             ],
@@ -144,6 +172,7 @@ class _FreeDriveMapWidgetState extends State<FreeDriveMapWidget> {
                   ),
                 ],
               ),
+
               // Badge de Velocidad en Tiempo Real
               if (widget.showSpeedBadge)
                 Positioned(
@@ -202,34 +231,120 @@ class _FreeDriveMapWidgetState extends State<FreeDriveMapWidget> {
                     ),
                   ),
                 ),
-              // Botón de recentrado
+
+              // Píldora de búsqueda de señal GPS si aún no hay fix
+              if (_isDefaultLocation)
+                Positioned(
+                  top: 14,
+                  right: 14,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppColors.card(isDark).withValues(alpha: 0.92),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.border(isDark)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(
+                          width: 12,
+                          height: 12,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.brand,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Buscando GPS...',
+                          style: TextStyle(
+                            color: AppColors.t2(isDark),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+              // Botón de Recentrado y Modo Auto-Follow
               if (widget.isInteractive)
                 Positioned(
                   bottom: 14,
                   right: 14,
                   child: Material(
                     color: Colors.transparent,
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(14),
-                      onTap: _recenter,
-                      child: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: AppColors.card(isDark).withValues(alpha: 0.92),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: AppColors.border(isDark),
-                            width: 1.2,
+                    child: _isFollowingUser
+                        ? InkWell(
+                            borderRadius: BorderRadius.circular(14),
+                            onTap: _recenter,
+                            child: Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: AppColors.card(isDark).withValues(alpha: 0.92),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: AppColors.brand.withValues(alpha: 0.6),
+                                  width: 1.5,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppColors.brand.withValues(alpha: 0.2),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(
+                                Icons.my_location_rounded,
+                                color: AppColors.brand,
+                                size: 18,
+                              ),
+                            ),
+                          )
+                        : InkWell(
+                            borderRadius: BorderRadius.circular(16),
+                            onTap: _recenter,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.brand,
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppColors.brand.withValues(alpha: 0.4),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ],
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.my_location_rounded,
+                                    color: Colors.white,
+                                    size: 16,
+                                  ),
+                                  SizedBox(width: 6),
+                                  Text(
+                                    'Recentrar',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
-                        ),
-                        child: const Icon(
-                          Icons.my_location_rounded,
-                          color: AppColors.brand,
-                          size: 18,
-                        ),
-                      ),
-                    ),
                   ),
                 ),
             ],

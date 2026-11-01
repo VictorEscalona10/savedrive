@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:safedrive/core/services/test_mode_controller.dart';
 import 'package:safedrive/core/theme/theme_service.dart';
 import 'package:safedrive/core/services/snackbar_service.dart';
 import 'package:safedrive/core/utils/input_sanitizer.dart';
@@ -14,19 +15,34 @@ import 'package:safedrive/presentation/components/buttons/primary_button.dart';
 import 'package:safedrive/presentation/components/cards/app_section.dart';
 import 'package:safedrive/presentation/components/inputs/app_text_field.dart';
 import 'package:safedrive/presentation/components/inputs/app_dropdown.dart';
+import 'package:safedrive/presentation/components/test_mode/test_mode_badge.dart';
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key});
+  /// Repositorios inyectables para poder testear la pantalla sin Supabase.
+  /// En producción quedan en `null` y se usan las implementaciones reales.
+  final SettingsRepository? settingsRepository;
+  final AlarmTypeRepository? alarmTypeRepository;
+  final EmergencyContactRepository? emergencyContactRepository;
+  final AuthRepository? authRepository;
+
+  const SettingsScreen({
+    super.key,
+    this.settingsRepository,
+    this.alarmTypeRepository,
+    this.emergencyContactRepository,
+    this.authRepository,
+  });
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  final _settingsRepo = SettingsRepository();
-  final _contactsRepo = EmergencyContactRepository();
-  final _alarmsRepo = AlarmTypeRepository();
-  final _authRepo = AuthRepository();
+  late final _settingsRepo = widget.settingsRepository ?? SettingsRepository();
+  late final _contactsRepo =
+      widget.emergencyContactRepository ?? EmergencyContactRepository();
+  late final _alarmsRepo = widget.alarmTypeRepository ?? AlarmTypeRepository();
+  late final _authRepo = widget.authRepository ?? AuthRepository();
 
   bool _isLoading = true;
   bool _isSaving = false;
@@ -356,6 +372,73 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 },
               ),
             ],
+          ),
+          Divider(color: AppColors.border(isDark), height: 24),
+          // Modo de prueba (RF-1, RF-2, RF-12): estado de sesión, nunca
+          // parte de UserSettingsModel ni del payload de «Guardar Ajustes».
+          ValueListenableBuilder<bool>(
+            valueListenable: TestModeController.instance.isActive,
+            builder: (context, testModeActive, _) {
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.science_rounded,
+                              color: AppColors.orange,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: Text(
+                                'Modo de prueba',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: AppColors.t1(isDark),
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            if (testModeActive) ...[
+                              const SizedBox(width: 8),
+                              const TestModeBadge(compact: true),
+                            ],
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Salta la calibración y simula la alerta para demos',
+                          style: TextStyle(
+                            color: AppColors.t2(isDark),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Switch.adaptive(
+                    key: const Key('test-mode-switch'),
+                    value: testModeActive,
+                    activeTrackColor: AppColors.orange,
+                    onChanged: (val) {
+                      HapticFeedback.selectionClick();
+                      if (val) {
+                        TestModeController.instance.enable();
+                      } else {
+                        TestModeController.instance.disable();
+                      }
+                    },
+                  ),
+                ],
+              );
+            },
           ),
         ],
       ),

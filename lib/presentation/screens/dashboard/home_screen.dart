@@ -8,6 +8,7 @@ import 'package:safedrive/core/theme/theme_service.dart';
 import 'package:safedrive/core/constants/map_config.dart';
 import 'package:safedrive/core/services/location_service.dart';
 import 'package:safedrive/core/services/snackbar_service.dart';
+import 'package:safedrive/core/services/test_mode_controller.dart';
 import 'package:safedrive/data/models/user_model.dart';
 import 'package:safedrive/data/models/user_settings_model.dart';
 import 'package:safedrive/data/repositories/user_repository.dart';
@@ -18,18 +19,35 @@ import 'package:safedrive/presentation/components/cards/stat_tile.dart';
 import 'package:safedrive/presentation/components/common/user_avatar.dart';
 import 'package:safedrive/presentation/components/common/theme_toggle_button.dart';
 import 'package:safedrive/presentation/components/maps/free_drive_map_widget.dart';
+import 'package:safedrive/presentation/components/test_mode/test_mode_badge.dart';
 import 'package:safedrive/presentation/screens/camera/calibration_screen.dart';
+import 'package:safedrive/presentation/screens/camera/drive_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  /// Repositorios opcionales para poder montar el dashboard en tests sin
+  /// inicializar Supabase. En producción se usan los reales.
+  final UserRepository? userRepository;
+  final SettingsRepository? settingsRepository;
+
+  /// Permite desactivar el GPS en tests de widget. En producción es `true`.
+  final bool enableLocation;
+
+  const HomeScreen({
+    super.key,
+    this.userRepository,
+    this.settingsRepository,
+    this.enableLocation = true,
+  });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
-  final _userRepo = UserRepository();
-  final _settingsRepo = SettingsRepository();
+  late final UserRepository _userRepo =
+      widget.userRepository ?? UserRepository();
+  late final SettingsRepository _settingsRepo =
+      widget.settingsRepository ?? SettingsRepository();
   final _locationService = LocationService.instance;
 
   UserModel? _user;
@@ -74,7 +92,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOut);
     _fadeCtrl.forward();
     _loadData();
-    _startLocation();
+    if (widget.enableLocation) {
+      _startLocation();
+    }
   }
 
   Future<void> _loadData() async {
@@ -105,10 +125,51 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           _currentHeading = telemetry.heading;
         });
       },
+      onStatusChange: (status) {
+        if (!mounted) return;
+        if (status == LocationServiceStatus.serviceDisabled) {
+          SnackBarService.showError(
+            context,
+            'El GPS está desactivado. Actívalo para ubicar tu vehículo.',
+          );
+        } else if (status == LocationServiceStatus.permissionDeniedForever) {
+          SnackBarService.showError(
+            context,
+            'Permiso de ubicación denegado permanentemente en los ajustes.',
+          );
+        }
+      },
     );
   }
 
   Future<void> _iniciarViaje() async {
+    // Modo prueba (RF-4): entrada directa a la cabina sin permiso de cámara,
+    // sin `availableCameras()` y sin pasar por la Calibración Fantasma.
+    if (TestModeController.instance.enabled) {
+      HapticFeedback.mediumImpact();
+      await Navigator.of(context).push(
+        PageRouteBuilder(
+          pageBuilder: (context, anim, secAnim) =>
+              const DriveScreen(isTestMode: true),
+          transitionsBuilder: (context, anim, secAnim, child) => FadeTransition(
+            opacity: anim,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, 0.05),
+                end: Offset.zero,
+              ).animate(
+                CurvedAnimation(parent: anim, curve: Curves.easeOutCubic),
+              ),
+              child: child,
+            ),
+          ),
+          transitionDuration: const Duration(milliseconds: 320),
+        ),
+      );
+      _loadData();
+      return;
+    }
+
     final status = await Permission.camera.request();
     if (!status.isGranted) {
       if (!mounted) return;
@@ -270,91 +331,112 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   }
 
   Widget _buildHeroActionCard(bool isDark) {
-    return AppCard(
-      onTap: _iniciarViaje,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
-      gradient: isDark
-          ? const LinearGradient(
-              colors: [Color(0xFF131D2E), Color(0xFF0F1622)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            )
-          : const LinearGradient(
-              colors: [Color(0xFFFFFFFF), Color(0xFFF8FAFC)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-      child: Row(
-        children: [
-          Container(
-            width: 58,
-            height: 58,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [AppColors.brand, AppColors.brandDim],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+    return ValueListenableBuilder<bool>(
+      valueListenable: TestModeController.instance.isActive,
+      builder: (context, isTestMode, _) {
+        // Con el modo activo la tarjeta cambia de acento (naranja) y avisa de
+        // que la alerta es simulada (RF-3). Apagado conserva el diseño actual.
+        final Color accent = isTestMode ? AppColors.orange : AppColors.brand;
+        final Color accentDim = isTestMode
+            ? const Color(0xFFB45309)
+            : AppColors.brandDim;
+        final Color glow = isTestMode
+            ? const Color(0x40F59E0B)
+            : const Color(0x4000C472);
+
+        return AppCard(
+          onTap: _iniciarViaje,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
+          gradient: isDark
+              ? const LinearGradient(
+                  colors: [Color(0xFF131D2E), Color(0xFF0F1622)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : const LinearGradient(
+                  colors: [Color(0xFFFFFFFF), Color(0xFFF8FAFC)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+          child: Row(
+            children: [
+              Container(
+                width: 58,
+                height: 58,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [accent, accentDim],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(18),
+                  boxShadow: [
+                    BoxShadow(
+                      color: glow,
+                      blurRadius: 18,
+                      spreadRadius: -2,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.videocam_rounded,
+                  color: Colors.white,
+                  size: 30,
+                ),
               ),
-              borderRadius: BorderRadius.circular(18),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x4000C472),
-                  blurRadius: 18,
-                  spreadRadius: -2,
-                  offset: Offset(0, 4),
+              const SizedBox(width: 18),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Iniciar Monitoreo',
+                      style: TextStyle(
+                        color: AppColors.t1(isDark),
+                        fontSize: 19,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.4,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    if (isTestMode) ...[
+                      const TestModeBadge(compact: true),
+                      const SizedBox(height: 6),
+                    ],
+                    Text(
+                      isTestMode
+                          ? 'Modo de prueba: alerta simulada sin calibración'
+                          : 'Calibración Fantasma & Cámara Frontal',
+                      style: TextStyle(
+                        color: AppColors.t2(isDark),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: const Icon(
-              Icons.videocam_rounded,
-              color: Colors.white,
-              size: 30,
-            ),
-          ),
-          const SizedBox(width: 18),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Iniciar Monitoreo',
-                  style: TextStyle(
-                    color: AppColors.t1(isDark),
-                    fontSize: 19,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.4,
-                  ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: AppColors.cardSecondary(isDark),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.border(isDark)),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'Calibración Fantasma & Cámara Frontal',
-                  style: TextStyle(
-                    color: AppColors.t2(isDark),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w400,
-                  ),
+                child: Icon(
+                  Icons.arrow_forward_rounded,
+                  color: accent,
+                  size: 18,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: AppColors.cardSecondary(isDark),
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.border(isDark)),
-            ),
-            child: const Icon(
-              Icons.arrow_forward_rounded,
-              color: AppColors.brand,
-              size: 18,
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -411,6 +493,11 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           currentSpeedKmh: _currentSpeedKmh,
           currentHeading: _currentHeading,
           initialZoom: 15.5,
+          onRecenter: () {
+            if (_currentLocation == MapConfig.defaultLocation) {
+              _startLocation();
+            }
+          },
         ),
       ),
     );

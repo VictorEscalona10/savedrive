@@ -10,6 +10,7 @@ import 'package:safedrive/presentation/components/buttons/secondary_button.dart'
 import 'package:safedrive/presentation/components/cards/app_card.dart';
 import 'package:safedrive/presentation/components/inputs/app_text_field.dart';
 import 'package:safedrive/presentation/layouts/main_layout_screen.dart';
+import 'package:safedrive/presentation/screens/auth/register_screen.dart';
 
 class LoginForm extends StatefulWidget {
   const LoginForm({super.key});
@@ -18,7 +19,7 @@ class LoginForm extends StatefulWidget {
   State<LoginForm> createState() => _LoginFormState();
 }
 
-class _LoginFormState extends State<LoginForm> {
+class _LoginFormState extends State<LoginForm> with WidgetsBindingObserver {
   final _authRepo = AuthRepository();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
@@ -30,6 +31,7 @@ class _LoginFormState extends State<LoginForm> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _authStateSubscription = _authRepo.onAuthStateChange.listen((data) {
       final session = data.session;
       if (session != null && mounted) {
@@ -42,7 +44,22 @@ class _LoginFormState extends State<LoginForm> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Si el usuario canceló el navegador de Google o volvió hacia atrás,
+    // al volver a primer plano (resumed) comprobamos si se creó la sesión.
+    // Si no hay sesión tras un breve lapso, restablecemos el estado para permitir reintentar.
+    if (state == AppLifecycleState.resumed && _isLoading && mounted) {
+      Future.delayed(const Duration(milliseconds: 600), () {
+        if (mounted && _authRepo.currentSession == null && _isLoading) {
+          setState(() => _isLoading = false);
+        }
+      });
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _emailController.dispose();
     _passwordController.dispose();
     _authStateSubscription.cancel();
@@ -84,13 +101,22 @@ class _LoginFormState extends State<LoginForm> {
   Future<void> _iniciarSesionGoogle() async {
     setState(() => _isLoading = true);
 
-    final error = await _authRepo.signInWithGoogle();
+    try {
+      final error = await _authRepo.signInWithGoogle();
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    if (error != null && !error.contains('cancel')) {
-      setState(() => _isLoading = false);
-      SnackBarService.showError(context, error);
+      if (error != null) {
+        setState(() => _isLoading = false);
+        final lower = error.toLowerCase();
+        if (!lower.contains('cancel') && !lower.contains('closed')) {
+          SnackBarService.showError(context, error);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -211,6 +237,37 @@ class _LoginFormState extends State<LoginForm> {
                       ),
                       isLoading: _isLoading,
                       onPressed: _iniciarSesionGoogle,
+                    ),
+                    const SizedBox(height: 24.0),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          '¿No tienes una cuenta?',
+                          style: TextStyle(
+                            color: AppColors.t3(isDark),
+                            fontSize: 14,
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const RegisterScreen(),
+                              ),
+                            );
+                          },
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppColors.brand,
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                          ),
+                          child: const Text(
+                            'Regístrate aquí',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

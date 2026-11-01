@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:safedrive/presentation/screens/login_screen.dart';
+import 'package:safedrive/presentation/screens/auth/register_screen.dart';
 import 'package:safedrive/presentation/layouts/main_layout_screen.dart';
 import 'package:safedrive/core/theme/theme_service.dart';
+import 'package:safedrive/core/services/app_preferences_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -56,6 +58,26 @@ class AuthGate extends StatelessWidget {
       return const MainLayoutScreen();
     }
 
-    return const LoginScreen();
+    return FutureBuilder<bool>(
+      future: AppPreferencesService.isFirstLaunch(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          final isDark = ThemeService.isDark;
+          return Scaffold(
+            backgroundColor: AppColors.bg(isDark),
+            body: const Center(
+              child: CircularProgressIndicator(color: AppColors.brand),
+            ),
+          );
+        }
+
+        final isFirstLaunch = snapshot.data ?? true;
+        if (isFirstLaunch) {
+          return const RegisterScreen();
+        }
+
+        return const LoginScreen();
+      },
+    );
   }
 }
