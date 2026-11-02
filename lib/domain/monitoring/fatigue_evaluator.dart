@@ -13,6 +13,7 @@ class FatigueEvaluationResult {
   final double headAngleDeviation;
   final bool isDrowsy;
   final bool isDistracted;
+  final bool isFaceLost;
   final bool isSilencedByTraffic;
   final String statusMessage;
 
@@ -22,6 +23,7 @@ class FatigueEvaluationResult {
     required this.headAngleDeviation,
     required this.isDrowsy,
     required this.isDistracted,
+    this.isFaceLost = false,
     required this.isSilencedByTraffic,
     required this.statusMessage,
   });
@@ -29,8 +31,10 @@ class FatigueEvaluationResult {
 
 class FatigueEvaluator {
   final double baselineEar;
-  final double baselineHeadAngle;
+  double baselineHeadAngle;
   final int alarmToleranceSeconds;
+  final bool ignoreSpeedLimit;
+  final double distractionAngleThresholdDeg;
 
   DateTime? _distractionStartTime;
 
@@ -38,26 +42,38 @@ class FatigueEvaluator {
     required this.baselineEar,
     required this.baselineHeadAngle,
     this.alarmToleranceSeconds = AppConstants.defaultAlarmToleranceSeconds,
+    this.ignoreSpeedLimit = false,
+    this.distractionAngleThresholdDeg =
+        AppConstants.distractionHeadAngleRelativeDeg,
   });
 
   FatigueEvaluationResult evaluate({
     required double currentEar,
     required double currentHeadAngleY,
     required double currentSpeedKmh,
+    bool isFaceDetected = true,
+    DateTime? currentTime,
   }) {
-    // 1. Silenciador de Semáforo / Tráfico denso (<10 km/h)
-    final isSilencedByTraffic = currentSpeedKmh < AppConstants.trafficLightSilenceSpeedKmh;
+    // 1. Silenciador de Semáforo / Tráfico denso (<10 km/h) (ignorable en modo prueba)
+    final isSilencedByTraffic = !ignoreSpeedLimit &&
+        currentSpeedKmh < AppConstants.trafficLightSilenceSpeedKmh;
 
     // 2. Caída relativa de apertura ocular respecto al Cero Relativo (Anti-Bias)
-    final earDropPercent = baselineEar > 0
+    final earDropPercent = isFaceDetected && baselineEar > 0
         ? ((baselineEar - currentEar) / baselineEar).clamp(0.0, 1.0)
         : 0.0;
-    final isDrowsy = earDropPercent >= AppConstants.fatigueDropThresholdPercent;
+    final isDrowsy = isFaceDetected &&
+        earDropPercent >= AppConstants.fatigueDropThresholdPercent;
 
     // 3. Desviación relativa de ángulo de cabeza respecto al cero del viaje
-    final headAngleDeviation = (currentHeadAngleY - baselineHeadAngle).abs();
-    final isDistracted = headAngleDeviation >= AppConstants.distractionHeadAngleRelativeDeg;
+    final headAngleDeviation = isFaceDetected
+        ? (currentHeadAngleY - baselineHeadAngle).abs()
+        : 0.0;
+    final isAngleDistracted = isFaceDetected &&
+        headAngleDeviation >= distractionAngleThresholdDeg;
 
+    final isFaceLost = !isFaceDetected;
+    final isDistracted = isAngleDistracted || isFaceLost;
     final isAttentionLost = isDrowsy || isDistracted;
 
     if (isSilencedByTraffic) {
@@ -68,6 +84,7 @@ class FatigueEvaluator {
         headAngleDeviation: headAngleDeviation,
         isDrowsy: isDrowsy,
         isDistracted: isDistracted,
+        isFaceLost: isFaceLost,
         isSilencedByTraffic: true,
         statusMessage: 'Tráfico lento: Alertas atenuadas',
       );
@@ -82,15 +99,23 @@ class FatigueEvaluator {
         headAngleDeviation: headAngleDeviation,
         isDrowsy: false,
         isDistracted: false,
+        isFaceLost: false,
         isSilencedByTraffic: false,
         statusMessage: 'Atención al camino',
       );
     }
 
     // Si perdió la atención, gestionar el protocolo de escalación
-    final now = DateTime.now();
+    final now = currentTime ?? DateTime.now();
     _distractionStartTime ??= now;
-    final elapsedSec = now.difference(_distractionStartTime!).inMilliseconds / 1000.0;
+    final elapsedSec =
+        now.difference(_distractionStartTime!).inMilliseconds / 1000.0;
+
+    String getAlertMessage() {
+      if (isFaceLost) return '¡ROSTRO NO DETECTADO!';
+      if (isDrowsy) return '¡ALERTA DE SOMNOLENCIA!';
+      return '¡ATENCIÓN AL FRENTE!';
+    }
 
     if (elapsedSec < alarmToleranceSeconds) {
       // 1. Buffer Window (Ventana de gracia)
@@ -100,6 +125,7 @@ class FatigueEvaluator {
         headAngleDeviation: headAngleDeviation,
         isDrowsy: isDrowsy,
         isDistracted: isDistracted,
+        isFaceLost: isFaceLost,
         isSilencedByTraffic: false,
         statusMessage: 'Verificación de entorno...',
       );
@@ -111,8 +137,9 @@ class FatigueEvaluator {
         headAngleDeviation: headAngleDeviation,
         isDrowsy: isDrowsy,
         isDistracted: isDistracted,
+        isFaceLost: isFaceLost,
         isSilencedByTraffic: false,
-        statusMessage: isDrowsy ? '¡ALERTA DE SOMNOLENCIA!' : '¡ATENCIÓN AL FRENTE!',
+        statusMessage: getAlertMessage(),
       );
     } else {
       // 3. Protocolo de Emergencia
@@ -122,13 +149,10 @@ class FatigueEvaluator {
         headAngleDeviation: headAngleDeviation,
         isDrowsy: isDrowsy,
         isDistracted: isDistracted,
+        isFaceLost: isFaceLost,
         isSilencedByTraffic: false,
-        statusMessage: '¡EMERGENCIA: CONTACTANDO AUXILIO!',
+        statusMessage: getAlertMessage(),
       );
     }
-  }
-
-  void reset() {
-    _distractionStartTime = null;
   }
 }

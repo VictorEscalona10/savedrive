@@ -29,6 +29,9 @@ const MethodChannel _permissionsChannel = MethodChannel(
   'flutter.baseflow.com/permissions/methods',
 );
 
+/// Canal nativo de camera.
+const MethodChannel _cameraChannel = MethodChannel('plugins.flutter.io/camera');
+
 /// Canal nativo de geolocator; solo se referencia en el mensaje del test.
 const String _geolocatorChannel = 'flutter.baseflow.com/geolocator';
 
@@ -128,14 +131,36 @@ void _expectNoUnexpectedException(WidgetTester tester) {
   );
 }
 
+List<MethodCall> _installCameraMock(WidgetTester tester) {
+  final calls = <MethodCall>[];
+  final messenger =
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+
+  messenger.setMockMethodCallHandler(_cameraChannel, (call) async {
+    calls.add(call);
+    if (call.method == 'availableCameras') {
+      return [
+        <String, Object?>{
+          'name': 'front',
+          'lensFacing': 'front',
+          'sensorOrientation': 0,
+        },
+      ];
+    }
+    return null;
+  });
+  addTearDown(
+    () => messenger.setMockMethodCallHandler(_cameraChannel, null),
+  );
+
+  return calls;
+}
+
 void main() {
   HttpOverrides? previousOverrides;
 
   setUp(() {
     TestModeController.instance.disable();
-    // Las teselas del mapa usan `package:http` sobre `dart:io`: se sustituye el
-    // cliente global por uno que responde un PNG transparente de 1×1. Así el
-    // mapa no intenta red real y no inunda el test con errores de imagen.
     previousOverrides = HttpOverrides.current;
     HttpOverrides.global = _FakeHttpOverrides();
   });
@@ -174,12 +199,13 @@ void main() {
     await _unmount(tester);
   });
 
-  testWidgets('con modo prueba abre la cabina sin pedir permiso de cámara', (
+  testWidgets('con modo prueba abre la cabina solicitando permiso y cámara frontal sin calibración', (
     tester,
   ) async {
     final harness = _Harness();
     TestModeController.instance.enable();
     final permissionCalls = _installPermissionMock(tester);
+    _installCameraMock(tester);
 
     await _pumpHome(tester, harness);
     expect(find.text(_badgeText), findsOneWidget);
@@ -192,9 +218,9 @@ void main() {
     expect(find.byType(DriveScreen), findsOneWidget);
     expect(find.text(_calibrationSubtitle), findsNothing);
     expect(
-      permissionCalls,
-      isEmpty,
-      reason: 'El modo prueba no debe solicitar permisos de cámara (RF-4).',
+      permissionCalls.any((call) => call.method == 'requestPermissions'),
+      isTrue,
+      reason: 'El modo prueba debe verificar permisos de cámara (RF-4).',
     );
 
     _expectNoUnexpectedException(tester);

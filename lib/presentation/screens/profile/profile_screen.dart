@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:safedrive/core/theme/theme_service.dart';
 import 'package:safedrive/core/services/snackbar_service.dart';
+import 'package:safedrive/core/services/test_mode_controller.dart';
 import 'package:safedrive/core/utils/input_sanitizer.dart';
 import 'package:safedrive/data/models/user_model.dart';
 import 'package:safedrive/data/repositories/auth_repository.dart';
@@ -16,15 +17,22 @@ import 'package:safedrive/presentation/components/inputs/app_dropdown.dart';
 import 'package:safedrive/presentation/components/inputs/app_text_field.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  final UserRepository? userRepository;
+  final AuthRepository? authRepository;
+
+  const ProfileScreen({
+    super.key,
+    this.userRepository,
+    this.authRepository,
+  });
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  final _userRepo = UserRepository();
-  final _authRepo = AuthRepository();
+  late final UserRepository _userRepo;
+  late final AuthRepository _authRepo;
 
   bool _isLoading = true;
   bool _isSaving = false;
@@ -48,6 +56,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
+    _userRepo = widget.userRepository ?? UserRepository();
+    _authRepo = widget.authRepository ?? AuthRepository();
     _loadProfile();
   }
 
@@ -137,6 +147,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
 
     if (confirmed == true && mounted) {
+      TestModeController.instance.handleSignOut();
       await _authRepo.signOut();
       if (mounted) {
         Navigator.of(context).pushNamedAndRemoveUntil('/', (_) => false);

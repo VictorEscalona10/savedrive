@@ -4,25 +4,25 @@ Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo qu
 
 ## Estado actual
 
-* Base en Flutter multiplataforma con autenticación en Supabase y mapas OpenStreetMap interactivos.
-* Autenticación con Google robusta: manejo de cancelación y navegación atrás mediante `WidgetsBindingObserver` para liberar `isLoading` al volver a primer plano.
-* Flujo de registro secuencial premium (`RegisterScreen`) con `RegisterDotsIndicator`.
-* Módulo de mapa y GPS reparado con permisos nativos, posición inmediata y Auto-Follow en `FreeDriveMapWidget`.
-* Módulo de cámara: calibración (`calibration_screen.dart`) y monitoreo (`drive_screen.dart`).
-* Pruebas y análisis validados en verde (46 tests pasando, 0 advertencias de linter).
+* Base en Flutter multiplataforma con autenticación en Supabase y mapas interactivos con seguimiento GPS.
+* Spec 001 Modo de Prueba con cámara interactiva completamente calibrada y optimizada para dispositivos físicos (ej. Xiaomi Redmi Note 13 Pro):
+  - Conversión de cámara corregida: `WriteBuffer` con `ByteData.offsetInBytes`/`lengthInBytes` y rotación sensor compensada.
+  - Autocalibración de postura inicial al detectar el rostro + tolerancia ampliada a ±30° para sostener cómodamente en mano.
+  - Alarma real con canal nativo Android: `ToneGenerator` (canal ALARM a máximo volumen) + `Vibrator` físico de 400 ms + permiso `android.permission.VIBRATE`.
+  - Chip superior informa estado en tiempo real: `EAR: XX%` o `SIN ROSTRO`.
+* Suite completa validada: 57/57 tests pasando en `flutter test` y 0 errores/warnings en `flutter analyze`.
 
 ## Decisiones (y por qué)
 
-* **WidgetsBindingObserver para OAuth móvil:** Al abrir el navegador/cuenta de Google y volver atrás o cancelar, el callback nunca llegaba de vuelta por deep-link; escuchar el ciclo de vida (`resumed`) desbloquea el botón si no se creó sesión, permitiendo reintentar de inmediato.
-* **Modo Auto-Follow en mapas:** Centra la cámara automáticamente sobre el conductor. Si el usuario arrastra el mapa para explorar, el seguimiento se pausa y se ofrece el botón "Recentrar".
-* **Flujo secuencial de registro paso a paso:** Divide bienvenida, nombre, teléfono SOS, correo, contraseña y datos médicos opcionales.
+* **Alarma sonora y vibración nativas en Android:** `SystemSound.play(alert)` y `heavyImpact` en Flutter solo producen clicks mudos en dispositivos Android como Xiaomi/MIUI. Se implementó `ToneGenerator` y `Vibrator` nativo en `MainActivity.kt` sin dependencias externas.
+* **Autocalibración de postura inicial en demo:** Permite que el ángulo del rostro al entrar sea el baseline cero relativo, evitando falsas alarmas por cómo se sostiene el teléfono.
+* **WriteBuffer sin desalineación:** Se corrigió la copia de planos para respetar el padding de memoria de CameraX/ML Kit.
 
 ## Aprendizajes y errores a evitar
 
-* No anidar el reseteo de `isLoading` dentro de un condicional que solo corre cuando hay error visible; si el usuario cancela, `error` puede contener 'cancel' o ser nulo y el estado de carga debe restablecerse siempre.
-* Liberar controladores de cámara, GPS y observers en `dispose()` para prevenir fugas de memoria.
-* Ejecutar `flutter analyze` y `flutter test` tras cada modificación.
+* En Flutter `WriteBuffer.done().buffer.asUint8List()` devuelve el buffer entero con ceros al final salvo que se usen `offsetInBytes` y `lengthInBytes`.
+* Para sonido audible de emergencia en Android no depender de `SystemSoundType.alert`.
 
 ## Próximos pasos
 
-* Probar el inicio de sesión con Google y el flujo de registro en un dispositivo real.
+* T7: Validación por el usuario en su teléfono físico recargando la app (`flutter run`).

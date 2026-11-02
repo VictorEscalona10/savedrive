@@ -1,10 +1,9 @@
 import 'dart:async';
-import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:camera/camera.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
+import 'package:safedrive/core/utils/camera_image_converter.dart';
 import 'package:safedrive/core/theme/theme_service.dart';
 import 'package:safedrive/core/services/snackbar_service.dart';
 import 'package:safedrive/data/repositories/settings_repository.dart';
@@ -97,24 +96,11 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
 
   Future<void> _procesarFrame(CameraImage image) async {
     try {
-      final bytes = _concatenatePlanes(image);
-      final sensorOrientation = _cameraController.description.sensorOrientation;
-      final rotation =
-          InputImageRotationValue.fromRawValue(sensorOrientation) ??
-          InputImageRotation.rotation270deg;
-      final format = Platform.isAndroid
-          ? InputImageFormat.nv21
-          : InputImageFormat.bgra8888;
-
-      final inputImage = InputImage.fromBytes(
-        bytes: bytes,
-        metadata: InputImageMetadata(
-          size: Size(image.width.toDouble(), image.height.toDouble()),
-          rotation: rotation,
-          format: format,
-          bytesPerRow: image.planes[0].bytesPerRow,
-        ),
+      final inputImage = CameraImageConverter.convertCameraImageToInputImage(
+        image: image,
+        description: _cameraController.description,
       );
+      if (inputImage == null) return;
 
       final faces = await _faceDetector.processImage(inputImage);
 
@@ -212,44 +198,6 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
     } finally {
       _isProcessingFrame = false;
     }
-  }
-
-  Uint8List _concatenatePlanes(CameraImage image) {
-    if (Platform.isAndroid) {
-      return _yuv420ToNv21(image);
-    }
-    final WriteBuffer allBytes = WriteBuffer();
-    for (final Plane plane in image.planes) {
-      allBytes.putUint8List(plane.bytes);
-    }
-    return allBytes.done().buffer.asUint8List();
-  }
-
-  Uint8List _yuv420ToNv21(CameraImage image) {
-    final int width = image.width;
-    final int height = image.height;
-    final Plane yPlane = image.planes[0];
-    final Plane uPlane = image.planes[1];
-    final Plane vPlane = image.planes[2];
-
-    final int ySize = width * height;
-    final int uvSize = width * height ~/ 2;
-    final bytes = Uint8List(ySize + uvSize);
-
-    bytes.setRange(0, ySize, yPlane.bytes);
-
-    int index = ySize;
-    final int rowStride = uPlane.bytesPerRow;
-    final int pixelStride = uPlane.bytesPerPixel ?? 1;
-
-    for (int row = 0; row < height ~/ 2; row++) {
-      for (int col = 0; col < width ~/ 2; col++) {
-        final int uvIndex = row * rowStride + col * pixelStride;
-        bytes[index++] = vPlane.bytes[uvIndex];
-        bytes[index++] = uPlane.bytes[uvIndex];
-      }
-    }
-    return bytes;
   }
 
   Future<void> _finalizarCalibracion() async {

@@ -143,33 +143,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   }
 
   Future<void> _iniciarViaje() async {
-    // Modo prueba (RF-4): entrada directa a la cabina sin permiso de cámara,
-    // sin `availableCameras()` y sin pasar por la Calibración Fantasma.
-    if (TestModeController.instance.enabled) {
-      HapticFeedback.mediumImpact();
-      await Navigator.of(context).push(
-        PageRouteBuilder(
-          pageBuilder: (context, anim, secAnim) =>
-              const DriveScreen(isTestMode: true),
-          transitionsBuilder: (context, anim, secAnim, child) => FadeTransition(
-            opacity: anim,
-            child: SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(0, 0.05),
-                end: Offset.zero,
-              ).animate(
-                CurvedAnimation(parent: anim, curve: Curves.easeOutCubic),
-              ),
-              child: child,
-            ),
-          ),
-          transitionDuration: const Duration(milliseconds: 320),
-        ),
-      );
-      _loadData();
-      return;
-    }
-
     final status = await Permission.camera.request();
     if (!status.isGranted) {
       if (!mounted) return;
@@ -188,6 +161,32 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         orElse: () => cameras.first,
       );
       if (!mounted) return;
+
+      // Modo prueba (RF-4): entrada directa a la cabina con la cámara frontal,
+      // sin pasar por la Calibración Fantasma.
+      if (TestModeController.instance.enabled) {
+        await Navigator.of(context).push(
+          PageRouteBuilder(
+            pageBuilder: (context, anim, secAnim) =>
+                DriveScreen(isTestMode: true, frontCamera: front),
+            transitionsBuilder: (context, anim, secAnim, child) => FadeTransition(
+              opacity: anim,
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0, 0.05),
+                  end: Offset.zero,
+                ).animate(
+                  CurvedAnimation(parent: anim, curve: Curves.easeOutCubic),
+                ),
+                child: child,
+              ),
+            ),
+            transitionDuration: const Duration(milliseconds: 320),
+          ),
+        );
+        _loadData();
+        return;
+      }
 
       await Navigator.of(context).push(
         PageRouteBuilder(
